@@ -1,0 +1,226 @@
+.auth-app {
+  display: grid;
+  width: min(100%, 620px);
+  min-height: 100vh;
+  min-height: 100dvh;
+  margin: 0 auto;
+  padding: var(--space-10) var(--space-5);
+  color: var(--moodi-text);
+  font-family: var(--moodi-font-sans);
+  place-items: center;
+}
+
+.auth-shell {
+  display: grid;
+  width: 100%;
+  gap: var(--space-6);
+  padding: var(--space-8);
+}
+
+.auth-surface {
+  background: var(--moodi-surface);
+  border: 1px solid var(--moodi-line);
+  border-radius: 20px;
+  box-shadow: var(--moodi-shadow-soft);
+}
+
+.auth-back-button,
+.auth-primary-button,
+.auth-secondary-button,
+.auth-ghost-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: 44px;
+  font-family: inherit;
+  font-weight: 650;
+}
+
+.auth-back-button {
+  justify-self: start;
+  padding: 0;
+  color: var(--moodi-muted-strong);
+  background: transparent;
+}
+
+.auth-heading h1,
+.profile-card h1 {
+  margin: var(--space-2) 0 0;
+  font-size: clamp(2rem, 6vw, 2.5rem);
+  font-weight: 750;
+  line-height: 1.14;
+  letter-spacing: -0.05em;
+}
+
+.auth-heading p,
+.profile-card p {
+  margin: var(--space-3) 0 0;
+  color: var(--moodi-muted);
+  line-height: 1.65;
+}
+
+.auth-eyebrow {
+  color: var(--moodi-primary);
+  font-size: 0.875rem;
+  font-weight: 680;
+}
+
+.auth-form {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.auth-form label {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.auth-form label > span {
+  color: var(--moodi-muted-strong);
+  font-size: 0.875rem;
+  font-weight: 650;
+}
+
+.auth-form .input {
+  width: 100%;
+  min-height: 48px;
+  padding: 0 var(--space-3);
+  color: var(--moodi-text);
+  font-family: inherit;
+  background: var(--moodi-surface-soft);
+  border: 1px solid var(--moodi-line-strong);
+  border-radius: var(--moodi-radius-control);
+}
+
+.auth-form .input::placeholder {
+  color: var(--moodi-placeholder);
+}
+
+.auth-error {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  color: var(--moodi-error-text);
+  font-size: 0.875rem;
+  line-height: 1.55;
+  background: var(--moodi-error-bg);
+  border: 1px solid var(--moodi-error-line);
+  border-radius: 10px;
+}
+
+.auth-primary-button {
+  width: 100%;
+  min-height: 48px;
+  padding: 0 var(--space-5);
+  color: var(--moodi-on-primary);
+  background: var(--moodi-primary-strong);
+  border-radius: var(--moodi-radius-control);
+}
+
+.auth-secondary-button,
+.auth-ghost-button {
+  padding: 0 var(--space-4);
+  color: var(--moodi-primary-strong);
+  background: var(--moodi-surface-soft);
+  border: 1px solid var(--moodi-line);
+  border-radius: var(--moodi-radius-control);
+}
+
+.auth-ghost-button {
+  color: var(--moodi-muted-strong);
+  background: transparent;
+}
+
+.profile-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  padding: var(--space-4) 0 var(--space-6);
+  border-bottom: 1px solid var(--moodi-line);
+}
+
+.profile-avatar {
+  display: grid;
+  width: 64px;
+  height: 64px;
+  flex: 0 0 auto;
+  color: var(--moodi-on-primary);
+  background: var(--moodi-primary-strong);
+  border-radius: 18px;
+  place-items: center;
+}
+
+.profile-list {
+  display: grid;
+  margin: 0;
+  border-top: 1px solid var(--moodi-line);
+}
+
+.profile-list div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  min-height: 56px;
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--moodi-line);
+}
+
+.profile-list dt {
+  color: var(--moodi-muted);
+  font-size: 0.875rem;
+  font-weight: 650;
+}
+
+.profile-list dd {
+  margin: 0;
+  color: var(--moodi-text);
+  font-size: 0.9375rem;
+  text-align: right;
+}
+
+.auth-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+@media (max-width: 520px) {
+  .auth-app {
+    width: 100%;
+    padding: 0 var(--space-4);
+    place-items: stretch;
+  }
+
+  .auth-shell {
+    min-height: 100dvh;
+    padding: calc(var(--space-6) + env(safe-area-inset-top)) 0 calc(var(--space-6) + env(safe-area-inset-bottom));
+    align-content: center;
+  }
+
+  .auth-surface {
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .profile-card {
+    align-items: flex-start;
+  }
+
+  .auth-actions,
+  .auth-secondary-button,
+  .auth-ghost-button {
+    width: 100%;
+  }
+}
+
+@media (forced-colors: active) {
+  .auth-surface,
+  .auth-form .input,
+  .auth-secondary-button,
+  .auth-ghost-button {
+    border: 1px solid CanvasText;
+  }
+}

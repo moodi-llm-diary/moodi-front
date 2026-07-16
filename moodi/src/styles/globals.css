@@ -1,0 +1,53 @@
+:root {
+  color: var(--text-primary);
+  background: var(--app-bg);
+  font-family: var(--font-sans);
+  font-synthesis: none;
+  line-height: 1.5;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html[data-moodi-font-size='small'] { font-size: 15px; }
+html[data-moodi-font-size='medium'] { font-size: 16px; }
+html[data-moodi-font-size='large'] { font-size: 18px; }
+
+body {
+  color: var(--text-primary);
+  background: var(--app-bg);
+}
+
+.moodi-theme-root {
+  min-height: 100vh;
+  min-height: 100dvh;
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  background: var(--app-bg);
+}
+
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+summary:focus-visible,
+a:focus-visible,
+[contenteditable='true']:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--color-accent) 62%, transparent);
+  outline-offset: 2px;
+}
+
+::selection {
+  color: var(--text-primary);
+  background: var(--color-accent-selected);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after {
+    scroll-behavior: auto;
+    animation-duration: 0.01ms;
+    animation-iteration-count: 1;
+    transition-duration: 0.01ms;
+  }
+}

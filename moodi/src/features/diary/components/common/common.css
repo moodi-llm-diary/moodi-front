@@ -1,0 +1,649 @@
+.moodi-app-shell {
+  --sidebar-width: 264px;
+  --mobile-app-bar-height: 58px;
+  --mobile-bottom-nav-height: 68px;
+  display: grid;
+  min-height: 100dvh;
+  grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
+  background: var(--app-bg);
+  transition: grid-template-columns 260ms var(--ease-out);
+}
+
+.moodi-app-shell.is-sidebar-collapsed { --sidebar-width: 72px; }
+
+.moodi-common-skip-link {
+  position: fixed;
+  top: 12px;
+  left: calc(var(--sidebar-width) + 16px);
+  z-index: var(--z-skip-link);
+  padding: 10px 14px;
+  color: var(--moodi-on-primary);
+  background: var(--moodi-primary-strong);
+  border-radius: var(--radius-control);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-8px);
+}
+
+.moodi-common-skip-link:focus {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+.moodi-sidebar {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-navigation);
+  display: flex;
+  width: var(--sidebar-width);
+  height: 100dvh;
+  min-width: 0;
+  flex-direction: column;
+  padding: 16px 12px 14px;
+  overflow: hidden;
+  background: var(--sidebar-bg);
+  border-right: 1px solid var(--border-soft);
+  backdrop-filter: blur(20px) saturate(120%);
+}
+
+.moodi-sidebar button {
+  min-height: 42px;
+  color: var(--text-secondary);
+  border-radius: var(--radius-control);
+  transition: background 140ms ease, color 140ms ease;
+}
+
+.moodi-sidebar-topline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  min-height: 44px;
+}
+
+.moodi-sidebar-brand {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  gap: 10px;
+  padding: 0 10px;
+  color: var(--text-primary);
+}
+
+.moodi-sidebar-brand > span {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 auto;
+  place-items: center;
+  color: var(--color-on-accent);
+  background: var(--color-accent);
+  border-radius: 9px;
+}
+
+.moodi-sidebar-brand > span svg { fill: color-mix(in srgb, var(--color-on-accent) 16%, transparent); }
+.moodi-sidebar-brand strong { font-size: 17px; font-weight: 760; letter-spacing: -0.03em; }
+
+.moodi-sidebar-collapse {
+  display: grid;
+  width: 34px;
+  min-height: 34px;
+  flex: 0 0 auto;
+  place-items: center;
+}
+
+.moodi-sidebar .moodi-sidebar-compose {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  margin-top: 15px;
+  padding: 0 14px;
+  color: var(--moodi-on-primary);
+  background: var(--color-accent);
+  font-size: 14px;
+  font-weight: 680;
+}
+
+.moodi-sidebar-navigation {
+  display: grid;
+  gap: 3px;
+  margin-top: 25px;
+}
+
+.moodi-sidebar-section-label {
+  padding: 0 11px 8px;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 690;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.moodi-sidebar-navigation button,
+.moodi-sidebar-footer button {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  align-items: center;
+  gap: 11px;
+  padding: 0 11px;
+  font-size: 14px;
+  font-weight: 590;
+  text-align: left;
+}
+
+.moodi-sidebar-navigation button svg,
+.moodi-sidebar-footer button > svg { flex: 0 0 auto; }
+
+.moodi-sidebar-navigation button.is-active,
+.moodi-sidebar-footer button.is-active {
+  color: var(--color-accent-strong);
+  background: var(--color-accent-soft);
+}
+
+.moodi-sidebar-library {
+  display: grid;
+  min-height: 0;
+  gap: var(--space-5);
+  margin-top: var(--space-6);
+  padding-top: var(--space-4);
+  overflow-y: auto;
+  border-top: 1px solid var(--border-soft);
+  scrollbar-width: thin;
+}
+
+.moodi-sidebar-library section {
+  display: grid;
+  gap: 3px;
+}
+
+.moodi-sidebar-library .moodi-sidebar-section-label {
+  padding-bottom: 5px;
+}
+
+.moodi-sidebar .moodi-sidebar-document {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 8px 10px;
+  text-align: left;
+}
+
+.moodi-sidebar-document > svg {
+  flex: 0 0 auto;
+  margin-top: 2px;
+  color: var(--text-muted);
+}
+
+.moodi-sidebar-document > span {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.moodi-sidebar-document strong,
+.moodi-sidebar-document small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.moodi-sidebar-document strong {
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 590;
+}
+
+.moodi-sidebar-document small {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.moodi-sidebar-footer {
+  display: grid;
+  gap: 3px;
+  margin-top: auto;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-soft);
+}
+
+.moodi-sidebar-footer button > span {
+  display: grid;
+  min-width: 0;
+  gap: 1px;
+}
+
+.moodi-sidebar-footer strong,
+.moodi-sidebar-footer small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.moodi-sidebar-footer strong { color: var(--text-primary); font-size: 13px; font-weight: 650; }
+.moodi-sidebar-footer small { color: var(--text-muted); font-size: 11px; }
+
+.is-sidebar-collapsed .moodi-sidebar { padding-inline: 10px; }
+.is-sidebar-collapsed .moodi-sidebar-topline { flex-direction: column; min-height: 82px; }
+.is-sidebar-collapsed .moodi-sidebar-brand,
+.is-sidebar-collapsed .moodi-sidebar-compose,
+.is-sidebar-collapsed .moodi-sidebar-navigation button,
+.is-sidebar-collapsed .moodi-sidebar-footer button { padding: 0; justify-content: center; }
+
+.moodi-common-main {
+  width: 100%;
+  min-width: 0;
+  min-height: 100dvh;
+  padding: 58px 32px 96px;
+  background: var(--app-bg);
+}
+
+.moodi-common-main.is-writing { padding: 0 28px 80px; }
+.moodi-common-main:focus { outline: none; }
+.moodi-common-main > * { animation: moodi-page-enter 180ms var(--ease-out); }
+
+.moodi-common-page-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 28px;
+  margin-bottom: 34px;
+}
+
+.moodi-common-page-header-copy { display: flex; min-width: 0; align-items: flex-start; gap: 13px; }
+.moodi-common-page-header-copy > div:last-child { min-width: 0; }
+.moodi-common-page-header-leading { flex: 0 0 auto; }
+
+.moodi-common-page-eyebrow {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--color-accent);
+  font-size: 12px;
+  font-weight: 720;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.moodi-common-page-header h1 {
+  font-size: clamp(36px, 4vw, 46px);
+  font-weight: 650;
+  line-height: 1.14;
+  letter-spacing: -0.052em;
+}
+
+.moodi-common-page-description {
+  max-width: 58ch;
+  margin-top: 11px;
+  color: var(--text-secondary);
+  font-size: 16px;
+  line-height: 1.68;
+}
+
+.moodi-common-page-meta { margin-top: 10px; color: var(--text-muted); font-size: 13px; }
+.moodi-common-page-actions,
+.moodi-common-empty-actions,
+.moodi-common-dialog-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 9px; }
+
+.moodi-common-button {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 16px;
+  color: var(--text-primary);
+  background: var(--document-bg);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-control);
+  font-size: 14px;
+  font-weight: 680;
+}
+
+.moodi-common-button.is-primary { color: var(--moodi-on-primary); background: var(--moodi-primary-strong); border-color: transparent; }
+.moodi-common-button.is-secondary { color: var(--text-secondary); background: var(--document-muted); }
+.moodi-common-button.is-danger { color: var(--color-on-accent); background: var(--danger); border-color: var(--danger); }
+
+.moodi-common-empty-state {
+  display: grid;
+  min-height: 220px;
+  place-items: center;
+  align-content: center;
+  gap: 15px;
+  padding: 40px 24px;
+  background: color-mix(in srgb, var(--document-bg) 72%, transparent);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-card);
+  text-align: center;
+}
+
+.moodi-common-empty-icon { display: grid; width: 48px; height: 48px; place-items: center; color: var(--color-accent); background: var(--color-accent-soft); border-radius: 14px; }
+.moodi-common-empty-copy h2 { font-size: 20px; font-weight: 680; }
+.moodi-common-empty-copy > div { max-width: 48ch; margin-top: 8px; color: var(--text-secondary); font-size: 15px; line-height: 1.65; }
+.moodi-common-empty-copy p { margin: 0; }
+
+.moodi-common-search {
+  display: grid;
+  width: min(100%, 520px);
+  min-height: 48px;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+  padding: 0 4px 0 14px;
+  color: var(--text-muted);
+  background: var(--document-bg);
+  border: 1px solid var(--border-soft);
+  border-radius: 13px;
+  box-shadow: var(--shadow-field);
+}
+
+.moodi-common-search:focus-within { border-color: color-mix(in srgb, var(--color-accent) 50%, var(--border-soft)); }
+.moodi-common-search input { min-width: 0; height: 46px; padding: 0; background: transparent; border: 0; outline: 0; font-size: 15px; }
+.moodi-common-search input::placeholder { color: var(--text-muted); }
+.moodi-common-search input::-webkit-search-cancel-button { display: none; }
+.moodi-common-search-clear,
+.moodi-common-toast button { display: grid; width: 44px; height: 44px; place-items: center; color: inherit; border-radius: 11px; }
+
+.moodi-common-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  display: grid;
+  padding: 22px;
+  place-items: center;
+  background: var(--color-backdrop);
+  backdrop-filter: blur(8px);
+  animation: moodi-backdrop-enter 180ms ease-out;
+}
+
+.moodi-common-confirm-dialog {
+  display: grid;
+  width: min(100%, 500px);
+  max-height: 86dvh;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 15px;
+  padding: 25px;
+  overflow-y: auto;
+  background: var(--document-bg);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-popover);
+  outline: none;
+  animation: moodi-panel-enter 240ms var(--ease-out);
+}
+
+.moodi-common-dialog-icon { display: grid; width: 44px; height: 44px; place-items: center; color: var(--color-accent); background: var(--color-accent-soft); border-radius: 12px; }
+.moodi-common-dialog-icon.is-danger { color: var(--danger); background: var(--danger-soft); }
+.moodi-common-dialog-copy h2 { margin-top: 2px; font-size: 21px; font-weight: 680; letter-spacing: -0.025em; }
+.moodi-common-dialog-copy > div { margin-top: 9px; color: var(--text-secondary); font-size: 15px; line-height: 1.65; }
+.moodi-common-dialog-actions { grid-column: 1 / -1; margin-top: 7px; }
+
+.moodi-common-toast-region {
+  position: fixed;
+  right: max(22px, env(safe-area-inset-right));
+  bottom: max(22px, env(safe-area-inset-bottom));
+  z-index: var(--z-toast);
+  display: grid;
+  width: min(420px, calc(100vw - 32px));
+  pointer-events: none;
+}
+
+.moodi-common-toast {
+  display: grid;
+  min-height: 56px;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 6px 6px 15px;
+  color: var(--moodi-on-primary);
+  background: var(--moodi-primary-strong);
+  border-radius: 14px;
+  box-shadow: var(--shadow-popover);
+  font-size: 14px;
+  pointer-events: auto;
+}
+
+.moodi-common-toast.is-success { background: var(--success); }
+.moodi-common-toast.is-error { background: var(--danger); }
+
+.moodi-common-skeleton { min-width: 0; }
+.moodi-common-skeleton.is-card { padding: 20px; background: var(--document-bg); border-radius: var(--radius-card); }
+.moodi-common-skeleton-visual { display: flex; gap: 13px; }
+.moodi-common-skeleton-avatar { width: 48px; height: 48px; flex: 0 0 auto; border-radius: 50%; }
+.moodi-common-skeleton-lines { display: grid; width: 100%; gap: 11px; }
+.moodi-common-skeleton-line,
+.moodi-common-skeleton-avatar { background: linear-gradient(90deg, var(--document-muted), var(--document-bg), var(--document-muted)); background-size: 220% 100%; animation: skeleton-shimmer 1.4s infinite; }
+.moodi-common-skeleton-line { height: 14px; border-radius: 6px; }
+.moodi-common-skeleton-line:first-child { width: 58%; height: 18px; }
+.moodi-common-skeleton-line:last-child { width: 74%; }
+
+.moodi-common-mobile-navigation { display: none; }
+
+@media (hover: hover) {
+  .moodi-sidebar button:hover { color: var(--text-primary); background: var(--sidebar-hover); }
+  .moodi-sidebar-compose:hover { filter: brightness(0.96); }
+  .moodi-common-button:hover { filter: brightness(0.98); }
+}
+
+@keyframes skeleton-shimmer { to { background-position: -220% 0; } }
+@keyframes moodi-page-enter { from { opacity: 0; } }
+@keyframes moodi-backdrop-enter { from { opacity: 0; } }
+@keyframes moodi-panel-enter { from { opacity: 0; transform: translateY(8px) scale(0.99); } }
+
+@media (min-width: 901px) {
+  .moodi-app-shell.is-ai-chat .moodi-common-main {
+    height: 100dvh;
+    min-height: 0;
+    padding: 0;
+    overflow: hidden;
+  }
+
+  .moodi-common-empty-state {
+    background: transparent;
+    border-right: 0;
+    border-left: 0;
+    border-radius: 0;
+  }
+}
+
+@media (min-width: 901px) and (max-width: 1100px) {
+  .moodi-app-shell { --sidebar-width: 232px; }
+  .moodi-common-main { padding-inline: 24px; }
+}
+
+@media (max-width: 900px) {
+  .moodi-app-shell { display: block; min-height: var(--moodi-visual-viewport-height, 100dvh); }
+  .moodi-sidebar { display: none; }
+  .moodi-common-mobile-navigation { display: block; }
+
+  .moodi-common-skip-link {
+    top: calc(env(safe-area-inset-top) + 6px);
+    right: max(12px, env(safe-area-inset-right));
+    left: max(12px, env(safe-area-inset-left));
+    text-align: center;
+  }
+
+  .moodi-common-mobile-header {
+    position: fixed;
+    top: 0;
+    right: 0;
+    left: 0;
+    z-index: var(--z-navigation);
+    display: grid;
+    min-height: calc(var(--mobile-app-bar-height) + env(safe-area-inset-top));
+    grid-template-columns: 44px minmax(0, 1fr) 44px;
+    align-items: end;
+    gap: 8px;
+    padding: env(safe-area-inset-top) max(10px, env(safe-area-inset-right)) 0 max(10px, env(safe-area-inset-left));
+    background: color-mix(in srgb, var(--document-bg) 94%, transparent);
+    border-bottom: 1px solid var(--border-soft);
+    backdrop-filter: blur(18px) saturate(120%);
+  }
+
+  .moodi-common-mobile-menu-button,
+  .moodi-common-mobile-action,
+  .moodi-common-mobile-action-spacer {
+    display: grid;
+    width: 44px;
+    height: var(--mobile-app-bar-height);
+    place-items: center;
+    color: var(--text-primary);
+    border-radius: 11px;
+  }
+
+  .moodi-common-mobile-action { color: var(--color-accent-strong); }
+  .moodi-common-mobile-title {
+    min-width: 0;
+    align-self: center;
+    overflow: hidden;
+    color: var(--text-primary);
+    font-size: 15px;
+    font-weight: 670;
+    letter-spacing: -0.02em;
+    text-align: center;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .moodi-common-bottom-navigation {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: var(--z-navigation-raised);
+    display: grid;
+    min-height: calc(var(--mobile-bottom-nav-height) + env(safe-area-inset-bottom));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    padding: 4px max(6px, env(safe-area-inset-right)) calc(4px + env(safe-area-inset-bottom)) max(6px, env(safe-area-inset-left));
+    background: color-mix(in srgb, var(--document-bg) 96%, transparent);
+    border-top: 1px solid var(--border-soft);
+    backdrop-filter: blur(18px) saturate(120%);
+  }
+
+  .moodi-common-bottom-navigation button {
+    display: flex;
+    min-width: 0;
+    min-height: 60px;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 1px;
+    color: var(--text-muted);
+    border-radius: 11px;
+    font-size: 12px;
+    font-weight: 610;
+  }
+
+  .moodi-common-bottom-icon { display: grid; width: 38px; height: 31px; place-items: center; border-radius: 10px; }
+  .moodi-common-bottom-navigation button.is-active { color: var(--color-accent-strong); }
+  .moodi-common-bottom-navigation button.is-active .moodi-common-bottom-icon { background: var(--color-accent-soft); }
+
+  .moodi-mobile-drawer-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: var(--z-modal);
+    display: flex;
+    background: var(--color-backdrop);
+    backdrop-filter: blur(6px);
+    animation: moodi-backdrop-enter 180ms ease-out;
+  }
+
+  .moodi-mobile-drawer {
+    display: flex;
+    width: min(86vw, 320px);
+    height: var(--moodi-visual-viewport-height, 100dvh);
+    min-width: 0;
+    flex-direction: column;
+    padding: max(12px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+    overflow: hidden;
+    background: var(--sidebar-bg);
+    border-right: 1px solid var(--border-soft);
+    box-shadow: var(--shadow-popover);
+    backdrop-filter: blur(22px) saturate(120%);
+    animation: moodi-drawer-enter 220ms var(--ease-out);
+  }
+
+  .moodi-mobile-drawer button { min-height: 44px; border-radius: 10px; }
+  .moodi-mobile-drawer-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .moodi-mobile-drawer-header > button:last-child { display: grid; width: 44px; place-items: center; color: var(--text-secondary); }
+  .moodi-mobile-drawer-brand { display: flex; min-width: 0; align-items: center; gap: 10px; padding: 0 6px; color: var(--text-primary); }
+  .moodi-mobile-drawer-brand > span { display: grid; width: 30px; height: 30px; flex: 0 0 auto; place-items: center; color: var(--color-on-accent); background: var(--color-accent); border-radius: 9px; }
+  .moodi-mobile-drawer-brand strong { font-size: 18px; font-weight: 750; letter-spacing: -0.03em; }
+
+  .moodi-mobile-drawer-profile { display: grid; min-width: 0; grid-template-columns: 38px minmax(0, 1fr); align-items: center; gap: 10px; margin-top: 10px; padding: 7px 8px; color: var(--text-primary); text-align: left; }
+  .moodi-mobile-drawer-profile > span:first-child { display: grid; width: 36px; height: 36px; place-items: center; color: var(--color-accent-strong); background: var(--color-accent-soft); border-radius: 11px; }
+  .moodi-mobile-drawer-profile > span:last-child { display: grid; min-width: 0; gap: 2px; }
+  .moodi-mobile-drawer-profile strong,
+  .moodi-mobile-drawer-profile small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .moodi-mobile-drawer-profile strong { font-size: 13px; }
+  .moodi-mobile-drawer-profile small { color: var(--text-muted); font-size: 11px; }
+
+  .moodi-mobile-drawer-compose { display: flex; width: 100%; align-items: center; justify-content: center; gap: 8px; margin-top: 8px; color: var(--color-on-accent); background: var(--color-accent); font-size: 14px; font-weight: 670; }
+  .moodi-mobile-drawer-navigation { display: grid; gap: 2px; margin-top: 18px; padding-bottom: 12px; border-bottom: 1px solid var(--border-soft); }
+  .moodi-mobile-drawer-navigation > span,
+  .moodi-mobile-drawer-library section > span { padding: 0 9px 5px; color: var(--text-muted); font-size: 11px; font-weight: 680; letter-spacing: 0.06em; }
+  .moodi-mobile-drawer-navigation button { display: flex; width: 100%; align-items: center; gap: 11px; padding: 0 10px; color: var(--text-secondary); font-size: 14px; text-align: left; }
+  .moodi-mobile-drawer-navigation button.is-active { color: var(--color-accent-strong); background: var(--color-accent-soft); }
+
+  .moodi-mobile-drawer-library { display: grid; min-height: 0; gap: 16px; padding: 14px 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
+  .moodi-mobile-drawer-library section { display: grid; gap: 2px; }
+  .moodi-mobile-drawer-library section > button { display: grid; width: 100%; min-width: 0; grid-template-columns: 24px minmax(0, 1fr); align-items: center; gap: 8px; padding: 5px 9px; color: var(--text-secondary); text-align: left; }
+  .moodi-mobile-drawer-library section > button > span { display: grid; min-width: 0; gap: 1px; }
+  .moodi-mobile-drawer-library strong,
+  .moodi-mobile-drawer-library small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .moodi-mobile-drawer-library strong { color: var(--text-primary); font-size: 12.5px; }
+  .moodi-mobile-drawer-library small { color: var(--text-muted); font-size: 11px; }
+
+  .moodi-mobile-drawer-footer { display: grid; gap: 2px; margin-top: auto; padding-top: 8px; border-top: 1px solid var(--border-soft); }
+  .moodi-mobile-drawer-footer button { display: flex; align-items: center; gap: 10px; padding: 0 10px; color: var(--text-secondary); font-size: 13px; }
+
+  .moodi-common-main {
+    min-height: var(--moodi-visual-viewport-height, 100dvh);
+    padding: calc(var(--mobile-app-bar-height) + env(safe-area-inset-top) + 20px) 0 calc(var(--mobile-bottom-nav-height) + env(safe-area-inset-bottom) + 24px);
+  }
+
+  .moodi-common-main.is-writing {
+    min-height: var(--moodi-visual-viewport-height, 100dvh);
+    padding: 0;
+  }
+
+  .moodi-app-shell.is-ai-chat .moodi-common-main { padding-bottom: 0; }
+  .moodi-app-shell.is-keyboard-open .moodi-common-bottom-navigation { display: none; }
+  .moodi-app-shell.is-keyboard-open .moodi-common-main { padding-bottom: 20px; }
+  .moodi-common-main > .settings-page { padding-inline: 18px; }
+  .moodi-common-main > .moodi-common-empty-state,
+  .moodi-common-main > .workspace-loading { margin-inline: 18px; }
+
+  .moodi-common-page-header { grid-template-columns: 1fr; align-items: start; gap: 16px; margin-bottom: 26px; }
+  .moodi-common-page-header h1 { font-size: clamp(27px, 7vw, 30px); }
+  .moodi-common-page-description { font-size: 15.5px; }
+  .moodi-common-page-actions { justify-content: flex-start; }
+  .moodi-common-search input { font-size: 16px; }
+  .moodi-common-toast-region { right: max(16px, env(safe-area-inset-right)); bottom: calc(var(--mobile-bottom-nav-height) + 12px + env(safe-area-inset-bottom)); left: max(16px, env(safe-area-inset-left)); width: auto; }
+}
+
+@keyframes moodi-drawer-enter { from { transform: translateX(-24px); opacity: 0.7; } }
+
+@media (max-width: 520px) {
+  .moodi-common-page-actions,
+  .moodi-common-empty-actions,
+  .moodi-common-dialog-actions { width: 100%; }
+  .moodi-common-page-actions > *,
+  .moodi-common-empty-actions .moodi-common-button,
+  .moodi-common-dialog-actions .moodi-common-button { flex: 1 1 auto; }
+  .moodi-common-dialog-backdrop { align-items: end; padding: 0; }
+  .moodi-common-confirm-dialog { width: 100%; padding: 24px 18px calc(20px + env(safe-area-inset-bottom)); border-radius: 20px 20px 0 0; }
+}
+
+@media (forced-colors: active) {
+  .moodi-sidebar,
+  .moodi-common-mobile-header,
+  .moodi-common-bottom-navigation,
+  .moodi-common-mobile-more-menu,
+  .moodi-common-search,
+  .moodi-common-confirm-dialog { border-color: CanvasText; }
+}

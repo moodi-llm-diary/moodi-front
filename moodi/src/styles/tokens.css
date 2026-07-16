@@ -1,0 +1,163 @@
+:root {
+  color-scheme: light;
+
+  --font-sans: 'Pretendard Variable', Pretendard, -apple-system,
+    BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', sans-serif;
+
+  /* Neutral product surfaces */
+  --color-canvas: #f5f5f7;
+  --color-sidebar: rgba(246, 246, 248, 0.9);
+  --color-surface: #ffffff;
+  --color-surface-secondary: #f2f2f4;
+  --color-surface-elevated: rgba(255, 255, 255, 0.84);
+  --color-text-primary: #1d1d1f;
+  --color-text-secondary: #6e6e73;
+  --color-text-tertiary: #6e6e73;
+  --color-border: rgba(60, 60, 67, 0.12);
+  --color-border-strong: rgba(60, 60, 67, 0.2);
+
+  /* A single product accent */
+  --color-accent: #82699d;
+  --color-accent-hover: #705887;
+  --color-accent-strong: #604b77;
+  --color-accent-soft: rgba(130, 105, 157, 0.1);
+  --color-accent-selected: rgba(130, 105, 157, 0.16);
+  --color-on-accent: #ffffff;
+
+  --color-success: #4f8063;
+  --color-success-soft: #edf6f0;
+  --color-warning: #8b632b;
+  --color-danger: #b6535c;
+  --color-danger-soft: #fbefef;
+  --color-backdrop: rgba(0, 0, 0, 0.24);
+  --color-overlay-control: rgba(29, 29, 31, 0.68);
+  --color-overlay-text: #ffffff;
+
+  /* Theme selector previews stay token-owned and do not duplicate palette values in TypeScript. */
+  --theme-preview-paper-canvas: #f5f5f7;
+  --theme-preview-paper-surface: #ffffff;
+  --theme-preview-paper-accent: #82699d;
+  --theme-preview-midnight-canvas: #171719;
+  --theme-preview-midnight-surface: #252527;
+  --theme-preview-midnight-accent: #ac91c8;
+
+  /* Mood colors are reserved for dots, icons, badges, and chart data. */
+  --mood-happy: #d19a4f;
+  --mood-calm: #7f9b8a;
+  --mood-excited: #b6758d;
+  --mood-neutral: #8d8d93;
+  --mood-tired: #758ba3;
+  --mood-anxious: #897ba3;
+  --mood-frustrated: #9b786f;
+  --mood-sad: #6f88a5;
+  --mood-angry: #ad6565;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  --radius-sm: 8px;
+  --radius-control: 10px;
+  --radius-card: 16px;
+  --radius-page: 20px;
+  --shadow-popover: 0 14px 40px rgba(0, 0, 0, 0.12);
+  --shadow-control: 0 2px 6px rgba(0, 0, 0, 0.18);
+  --shadow-field: 0 5px 16px rgba(0, 0, 0, 0.04);
+  --shadow-page: 0 1px 2px rgba(0, 0, 0, 0.03),
+    0 12px 34px rgba(0, 0, 0, 0.055);
+  --ease-out: cubic-bezier(0.22, 0.72, 0, 1);
+  --z-raised-content: 1;
+  --z-inline-control: 4;
+  --z-local-overlay: 12;
+  --z-sticky: 20;
+  --z-dropdown: 40;
+  --z-navigation: 80;
+  --z-navigation-raised: 90;
+  --z-modal: 100;
+  --z-toast: 110;
+  --z-skip-link: 120;
+
+  /* Application aliases. Feature CSS consumes these semantic values only. */
+  --app-bg: var(--color-canvas);
+  --sidebar-bg: var(--color-sidebar);
+  --sidebar-hover: rgba(60, 60, 67, 0.07);
+  --document-bg: var(--color-surface);
+  --document-muted: var(--color-surface-secondary);
+  --text-primary: var(--color-text-primary);
+  --text-secondary: var(--color-text-secondary);
+  --text-muted: var(--color-text-tertiary);
+  --border-soft: var(--color-border);
+  --border-strong: var(--color-border-strong);
+
+  --danger: var(--color-danger);
+  --danger-soft: var(--color-danger-soft);
+  --success: var(--color-success);
+  --success-soft: var(--color-success-soft);
+
+  --moodi-font-sans: var(--font-sans);
+  --moodi-bg: var(--app-bg);
+  --moodi-bg-cool: var(--document-muted);
+  --moodi-text: var(--text-primary);
+  --moodi-muted: var(--text-muted);
+  --moodi-muted-strong: var(--text-secondary);
+  --moodi-line: var(--border-soft);
+  --moodi-line-strong: var(--border-strong);
+  --moodi-surface: var(--document-bg);
+  --moodi-surface-soft: var(--document-muted);
+  --moodi-surface-muted: var(--document-muted);
+  --moodi-control-soft: var(--document-muted);
+  --moodi-note-bg: var(--color-accent-soft);
+  --moodi-primary: var(--color-accent);
+  --moodi-primary-strong: var(--color-accent-strong);
+  --moodi-on-primary: var(--color-on-accent);
+  --moodi-accent: var(--color-accent);
+  --moodi-placeholder: var(--text-muted);
+  --moodi-error-text: var(--color-danger);
+  --moodi-error-bg: var(--color-danger-soft);
+  --moodi-error-line: rgba(182, 83, 92, 0.24);
+  --moodi-success-text: var(--color-success);
+  --moodi-success-bg: var(--color-success-soft);
+  --moodi-shadow: var(--shadow-popover);
+  --moodi-shadow-soft: 0 8px 24px rgba(0, 0, 0, 0.055);
+  --moodi-radius-control: var(--radius-control);
+  --moodi-ease: var(--ease-out);
+}
+
+:root[data-moodi-theme='midnight'],
+.moodi-theme-root[data-moodi-theme='midnight'] {
+  color-scheme: dark;
+  --color-canvas: #171719;
+  --color-sidebar: rgba(30, 30, 32, 0.9);
+  --color-surface: #252527;
+  --color-surface-secondary: #2d2d30;
+  --color-surface-elevated: rgba(42, 42, 45, 0.88);
+  --color-text-primary: #f5f5f7;
+  --color-text-secondary: #b6b6ba;
+  --color-text-tertiary: #a1a1a6;
+  --color-border: rgba(235, 235, 245, 0.12);
+  --color-border-strong: rgba(235, 235, 245, 0.2);
+  --color-accent: #ac91c8;
+  --color-accent-hover: #bea6d4;
+  --color-accent-strong: #cab7db;
+  --color-accent-soft: rgba(172, 145, 200, 0.14);
+  --color-accent-selected: rgba(172, 145, 200, 0.22);
+  --color-on-accent: #211927;
+  --color-success: #80b393;
+  --color-warning: #d0a064;
+  --color-danger: #dc7a83;
+  --color-success-soft: rgba(79, 128, 99, 0.18);
+  --color-danger-soft: rgba(182, 83, 92, 0.18);
+  --color-backdrop: rgba(0, 0, 0, 0.5);
+  --color-overlay-control: rgba(0, 0, 0, 0.72);
+  --sidebar-hover: rgba(255, 255, 255, 0.07);
+  --shadow-popover: 0 18px 50px rgba(0, 0, 0, 0.34);
+  --shadow-page: 0 1px 1px rgba(0, 0, 0, 0.24),
+    0 18px 42px rgba(0, 0, 0, 0.22);
+}

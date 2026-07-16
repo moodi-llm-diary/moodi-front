@@ -1,0 +1,111 @@
+.theme-selector {
+  min-width: 0;
+}
+
+.theme-selector-heading {
+  margin-bottom: 14px;
+}
+
+.theme-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--moodi-primary);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.theme-selector-heading h2 {
+  margin: 5px 0 0;
+  font-size: 22px;
+  font-weight: 850;
+  line-height: 1.18;
+}
+
+.theme-option-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.theme-option {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  min-height: 46px;
+  padding: 9px 10px;
+  color: var(--moodi-text);
+  background: var(--moodi-surface);
+  border: 1px solid var(--moodi-line);
+  border-radius: 14px;
+  text-align: left;
+  transition:
+    transform 0.18s var(--moodi-ease),
+    border-color 0.18s var(--moodi-ease),
+    background 0.18s var(--moodi-ease);
+}
+
+.theme-option:hover {
+  transform: translateY(-1px);
+}
+
+.theme-option.selected {
+  color: var(--moodi-primary-strong);
+  background: var(--moodi-control-soft);
+  border-color: var(--moodi-primary);
+}
+
+.theme-swatches {
+  display: inline-flex;
+  flex: 0 0 auto;
+  overflow: hidden;
+  border: 1px solid var(--moodi-line);
+  border-radius: 999px;
+}
+
+.theme-swatches span {
+  width: 14px;
+  height: 24px;
+}
+
+.theme-swatches-paper span:nth-child(1) { background: var(--theme-preview-paper-canvas); }
+.theme-swatches-paper span:nth-child(2) { background: var(--theme-preview-paper-surface); }
+.theme-swatches-paper span:nth-child(3) { background: var(--theme-preview-paper-accent); }
+.theme-swatches-midnight span:nth-child(1) { background: var(--theme-preview-midnight-canvas); }
+.theme-swatches-midnight span:nth-child(2) { background: var(--theme-preview-midnight-surface); }
+.theme-swatches-midnight span:nth-child(3) { background: var(--theme-preview-midnight-accent); }
+
+.theme-option-copy {
+  display: grid;
+  min-width: 0;
+}
+
+.theme-option-copy strong {
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 820;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.theme-option-copy small {
+  overflow: hidden;
+  color: var(--moodi-muted);
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1.45;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.theme-check {
+  color: var(--moodi-primary);
+}
+
+@media (max-width: 720px) {
+  .theme-option-list {
+    grid-template-columns: 1fr;
+  }
+}
