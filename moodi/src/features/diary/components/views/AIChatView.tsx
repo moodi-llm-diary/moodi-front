@@ -265,8 +265,8 @@ export function AIChatView({
       </header>
 
       <div className="ai-local-disclosure" role="note">
-        <span>로컬 기록 검색</span>
-        <p>현재는 외부 AI가 아니라 이 브라우저의 실제 기록을 규칙 기반으로 찾아요. 잠긴 기록과 예시 기록은 제외됩니다.</p>
+        <span>안전한 기록 기반 AI</span>
+        <p>서버가 권한이 있는 실제 기록만 근거로 답변을 만들어요. 잠긴 기록은 답변과 출처에서 제외됩니다.</p>
         <button
           aria-expanded={isHistoryOpen}
           aria-label="대화 기록 열기"
@@ -317,7 +317,7 @@ export function AIChatView({
               {getProgressMessage(phase)}
             </span>
             <button
-              aria-label="로컬 기록 검색 중단"
+              aria-label="AI 응답 생성 중단"
               disabled={phase === 'cancelling'}
               onClick={onCancel}
               type="button"
@@ -513,7 +513,7 @@ export function AIChatView({
 
       <ConfirmDialog
         confirmLabel="대화 삭제"
-        description={conversationToDelete ? `“${conversationToDelete.title}” 대화를 브라우저에서 삭제합니다.` : ''}
+        description={conversationToDelete ? `“${conversationToDelete.title}” 대화를 서버에서 삭제합니다.` : ''}
         isOpen={conversationToDelete !== null}
         isPending={isBusy}
         onCancel={() => setConversationToDelete(null)}
@@ -529,7 +529,7 @@ export function AIChatView({
 
       <ConfirmDialog
         confirmLabel="AI 대화만 초기화"
-        description="손상된 AI 대화 기록만 이 브라우저에서 삭제합니다. 저장한 일기 원문은 유지됩니다."
+        description="AI 대화만 서버에서 삭제합니다. 저장한 일기 원문은 유지됩니다."
         isOpen={isResetConfirmationOpen}
         isPending={isConversationMutating}
         onCancel={() => setIsResetConfirmationOpen(false)}
@@ -572,7 +572,7 @@ function AIEmptyState({
       <button className="ai-open-insights" onClick={onOpenInsights} type="button">
         <Sparkles aria-hidden="true" size={17} /> 최근 회고 보기
       </button>
-      <p className="ai-empty-privacy">대화는 외부 전송 없이 이 브라우저에만 저장해요.</p>
+      <p className="ai-empty-privacy">대화와 답변은 로그인한 내 계정의 서버 저장소에만 보관해요.</p>
     </div>
   )
 }
@@ -594,12 +594,12 @@ function AIMessageItem({
   }
 
   return (
-    <article aria-label="Moodi 로컬 검색 답변" className="ai-assistant-message">
+    <article aria-label="Moodi AI 답변" className="ai-assistant-message">
       <header>
         <span className="ai-assistant-mark"><Search aria-hidden="true" size={16} /></span>
         <div>
           <strong>Moodi</strong>
-          <small>로컬 기록 검색 결과</small>
+          <small>기록 기반 AI 답변</small>
         </div>
       </header>
       <div className="ai-message-content">
@@ -625,12 +625,12 @@ function AIMessageItem({
 
 function AIStreamingMessage({ content }: { content: string }) {
   return (
-    <article aria-label="Moodi 로컬 검색 부분 답변" className="ai-assistant-message ai-streaming-message">
+    <article aria-label="Moodi AI 부분 답변" className="ai-assistant-message ai-streaming-message">
       <header>
         <span className="ai-assistant-mark"><Search aria-hidden="true" size={16} /></span>
         <div>
           <strong>Moodi</strong>
-          <small>로컬 기록 검색 결과 표시 중</small>
+          <small>기록 기반 답변 생성 중</small>
         </div>
       </header>
       <div className="ai-message-content">
@@ -731,8 +731,8 @@ function formatConversationDate(timestamp: string): string {
 
 function getProgressMessage(phase: JournalAIChatPhase): string {
   if (phase === 'sending') return '질문을 대화에 저장하고 있어요…'
-  if (phase === 'cancelling') return '로컬 기록 검색을 중단하고 있어요…'
-  if (phase === 'streaming') return '로컬 검색 결과를 표시하고 있어요…'
+  if (phase === 'cancelling') return 'AI 응답 생성을 중단하고 있어요…'
+  if (phase === 'streaming') return 'AI 답변을 표시하고 있어요…'
 
   return '실제 기록을 찾고 답변을 정리하고 있어요…'
 }

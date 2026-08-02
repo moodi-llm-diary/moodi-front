@@ -1,19 +1,29 @@
 # 디렉토리 문서 - moodi
 
-이 문서는 현재 존재하는 주요 소스 파일과 소유권을 기록한다. 기능 경계는 `moodi/src/features` 아래의 `diary`, `settings`, `auth`, `theme`이며 Diary 내부는 UI, hook, service, repository, store, type을 분리한다.
+이 문서는 현재 존재하는 주요 소스 파일과 소유권을 기록한다. 기능 경계는 `moodi/src/features` 아래의 `diary`, `settings`, `auth`, `theme`이며 Diary 내부는 UI, hook, service, repository, store, type을 분리한다. Auth는 Google 기반 로그인·회원가입 화면과 인증 service 경계를 소유한다.
 
 ## App 경계
 
 | Path | 책임 | 의존성 메모 |
 | --- | --- | --- |
 | `moodi/src/main.tsx` | React root 생성, Pretendard Variable CSS와 전역 CSS import | `App`만 렌더링 |
-| `moodi/src/App.tsx` | Diary/Login/MyPage 조립, theme/font root attribute 적용 | auth overlay를 History state와 동기화하고 feature application action만 조립 |
+| `moodi/src/App.tsx` | Diary/Login/Signup/MyPage 조립, theme/font root attribute 적용 | auth overlay를 History state와 동기화하고 로그인·회원가입 화면에는 system color scheme, 나머지 화면에는 저장 theme preference를 적용 |
 | `moodi/src/styles/reset.css` | browser reset과 box model 정규화 | token 또는 feature selector를 소유하지 않음 |
 | `moodi/src/styles/tokens.css` | neutral 색상·간격·radius·shadow·z-index·motion semantic token의 단일 진실 공급원 | `paper` 기본값과 `data-moodi-theme='midnight'` variant, feature가 소비하는 semantic application alias 제공 |
 | `moodi/src/styles/globals.css` | Pretendard root 조판, app background, focus와 reduced motion | reset과 token 이후 한 번 로드 |
 | `moodi/src/styles/utilities.css` | screen-reader 전용 공통 utility | layout이나 component style을 포함하지 않음 |
 | `moodi/src/assets/diary-afternoon-table.webp` | seed visual asset | 대표 오후 기록의 로컬 최적화 사진 |
 | `moodi/src/assets/diary-evening-walk.webp` | seed visual asset | 저녁 산책 기록의 로컬 최적화 사진 |
+
+## 공통 backend API 경계
+
+| Path | 책임 |
+| --- | --- |
+| `moodi/.env.example` | `VITE_API_BASE_URL`과 Google client ID 환경변수의 공개 예시 |
+| `moodi/.env.local` | 로컬 개발 backend origin `http://localhost:8080` (git ignore) |
+| `moodi/src/shared/api/apiConfig.ts` | API origin과 backend relative URL 정규화 |
+| `moodi/src/shared/api/httpClient.ts` | cookie credential, memory CSRF token, timeout, JSON/problem response, idempotency header 공통 경계 |
+| `moodi/src/shared/api/apiError.ts` | RFC 9457 problem detail의 typed error와 UI-safe error mapping |
 
 ## Diary type과 data
 
@@ -31,18 +41,21 @@
 | Path | 계층 | 책임 |
 | --- | --- | --- |
 | `moodi/src/features/diary/repositories/DiaryRepository.ts` | repository contract | 비동기 CRUD, 목록 교체, draft, 전체 삭제 계약과 오류 code |
-| `moodi/src/features/diary/repositories/localStorageDiaryRepository.ts` | persistence adapter | v2 envelope, field 검증/정규화, v1 migration, draft, Web Locks/fallback queue, localStorage 오류 매핑 |
+| `moodi/src/features/diary/repositories/apiDiaryRepository.ts` | backend persistence adapter | Diary/draft/data REST DTO 변환, ETag/If-Match, idempotency, HEAD confirmation token 처리 |
+| `moodi/src/features/diary/repositories/localStorageDiaryRepository.ts` | legacy/test adapter | 이전 v2 envelope import 호환과 repository unit test용; 앱 기본 adapter는 아님 |
 | `moodi/src/features/diary/repositories/JournalAIConversationRepository.ts` | repository contract | AI 대화 조회, 분리된 create/update(updater), 삭제, entry source 정리와 AI 대화 scoped reset |
-| `moodi/src/features/diary/repositories/localStorageJournalAIConversationRepository.ts` | persistence adapter | v1 envelope 검증, non-upsert update, 최근 80개 message trim-before-validation, `storage-corrupted` 매핑과 AI key만 제거하는 reset |
+| `moodi/src/features/diary/repositories/localStorageJournalAIConversationRepository.ts` | legacy/test adapter | 이전 local conversation envelope 호환과 unit test용; 앱 기본 AI persistence는 아님 |
 | `moodi/src/features/diary/repositories/index.ts` | repository barrel | contract와 local adapter export |
 | `moodi/src/features/diary/services/diaryAnalysisService.ts` | application service | `local-rule-mock` 분석, 실제 지원 기록이 있는 pattern/co-occurrence, topic/related entry/follow-up question 생성 |
 | `moodi/src/features/diary/services/diaryQueryService.ts` | query service | 정렬, 검색/필터, calendar, insight, 최근 7일 회고 기록·주제·반복 생각, tag index, 과거의 오늘 계산 |
 | `moodi/src/features/diary/services/diaryTransferService.ts` | transfer service | versioned JSON export와 import file 검증 |
 | `moodi/src/features/diary/services/diaryDocumentService.ts` | document compatibility service | legacy 평문을 안전한 TipTap paragraph HTML로 변환하고 질문 문단을 추가 |
 | `moodi/src/features/diary/services/diaryImageService.ts` | domain/application helper | cover/inline URL 참조 판정, role 없는 legacy image 분류, 목록 thumbnail 선택 |
-| `moodi/src/features/diary/services/journalAIService.ts` | application service | 외부 endpoint 없는 `local-search`, mood+keyword 교집합·한국어 조사/활용형·대표 source 집계, 잠금/seed 제외, 동기 source sanitizer와 최종 저장 확정 |
+| `moodi/src/features/diary/services/journalAIService.ts` | legacy/test service | 이전 `local-search` 대화 호환과 unit test용; 앱 기본 AI service는 아님 |
+| `moodi/src/features/diary/services/apiJournalAIService.ts` | backend AI adapter | conversation/message/run REST DTO 변환, EventSource SSE 수신과 run cancellation |
+| `moodi/src/features/diary/services/diaryImageUploadService.ts` | backend image adapter | multipart image upload과 API content URL domain 변환 |
 | `moodi/src/features/diary/services/sidebarPreferenceService.ts` | UI preference service | `moodi.ui.sidebar-collapsed.v1` read/write/reset과 전체 초기화 event |
-| `moodi/src/features/diary/stores/diaryStore.ts` | application store | entries/draft source of truth, async mutation 상태, Repository와 분석 service 조합 |
+| `moodi/src/features/diary/stores/diaryStore.ts` | application store | entries/draft client cache, async mutation 상태, API Repository와 UI query 조합 |
 
 ## Diary 자동 회귀 테스트
 
@@ -162,8 +175,9 @@
 | Path | 계층 | 책임 |
 | --- | --- | --- |
 | `moodi/src/features/settings/types/settings.ts` | type | font, lock, AI preference, 외부 data source option |
-| `moodi/src/features/settings/services/settingsPreferenceService.ts` | service | versioned localStorage read, normalize, fallback, persist |
-| `moodi/src/features/settings/stores/settingsStore.ts` | store | Settings preference source of truth와 저장 action |
+| `moodi/src/features/settings/services/settingsApiService.ts` | backend adapter | settings REST DTO 조회·PATCH·DELETE |
+| `moodi/src/features/settings/services/settingsPreferenceService.ts` | legacy preference helper | 이전 device-local settings 호환용; 앱 기본 persistence는 아님 |
+| `moodi/src/features/settings/stores/settingsStore.ts` | store | server settings cache와 저장 action |
 | `moodi/src/features/settings/hooks/useSettingsPreferences.ts` | hook | SettingsPage용 상태·option·action |
 | `moodi/src/features/settings/hooks/useMoodiDataReset.ts` | hook | auth/theme/settings/sidebar reset action을 전체 로컬 삭제 use-case로 조합 |
 | `moodi/src/features/settings/pages/SettingsPage.tsx` | page | 계정 profile과 태그·주제 진입, theme/font/privacy/AI/external connection/data 관리 UI와 상위 callback |
@@ -173,24 +187,29 @@
 
 | Path | 책임 |
 | --- | --- |
-| `moodi/src/features/auth/pages/LoginPage.tsx` | mock login form 화면 |
-| `moodi/src/features/auth/pages/MyPage.tsx` | mock profile와 logout 화면 |
+| `moodi/src/features/auth/pages/LoginPage.tsx` | 돌아가기·theme selector 없이 Google 기반 로그인 화면을 조립 |
+| `moodi/src/features/auth/pages/SignupPage.tsx` | 돌아가기·theme selector 없이 Google 기반 회원가입 화면을 조립 |
+| `moodi/src/features/auth/pages/GoogleAuthPage.tsx` | 로그인·회원가입 공통 Google 인증 UI와 화면 상태 조립 |
+| `moodi/src/features/auth/pages/MyPage.tsx` | 인증 결과 profile과 logout 화면 |
 | `moodi/src/features/auth/pages/AuthPages.css` | Auth 화면 style |
-| `moodi/src/features/auth/hooks/useLoginPage.ts` | login form orchestration |
+| `moodi/src/features/auth/hooks/useGoogleAuthPage.ts` | Google 로그인·회원가입 제출 orchestration |
 | `moodi/src/features/auth/hooks/useMyPage.ts` | profile view model과 logout action |
-| `moodi/src/features/auth/stores/authStore.ts` | mock user state |
-| `moodi/src/features/auth/services/authMockService.ts` | 비밀정보 없는 mock profile localStorage persistence |
+| `moodi/src/features/auth/stores/authStore.ts` | 인증 상태와 사용자 profile 표시 state |
+| `moodi/src/features/auth/services/authSessionService.ts` | session 조회·logout, memory CSRF token 갱신 |
+| `moodi/src/features/auth/services/authGoogleService.ts` | login attempt, GIS credential, backend form callback, session 조회 경계 |
 | `moodi/src/features/auth/types/auth.ts` | Auth form/domain/view type |
 | `moodi/src/features/theme/components/ThemeSelector.tsx` | 재사용 theme selector |
 | `moodi/src/features/theme/components/ThemeSelector.css` | theme selector style |
 | `moodi/src/features/theme/hooks/useThemePreference.ts` | theme state와 option 제공 |
+| `moodi/src/features/theme/hooks/useSystemThemePreference.ts` | browser/OS color scheme 변경을 구독하는 표시용 theme hook |
 | `moodi/src/features/theme/stores/themeStore.ts` | active theme state |
-| `moodi/src/features/theme/services/themePreferenceService.ts` | `paper | midnight` localStorage persistence와 기존 `forest | rose | ocean`의 `paper` normalization |
+| `moodi/src/features/theme/services/themePreferenceService.ts` | `paper | midnight` localStorage persistence, system color scheme 조회와 기존 `forest | rose | ocean`의 `paper` normalization |
+| `moodi/src/features/theme/services/themePreferenceService.test.ts` | system color scheme의 canonical theme 변환과 지원하지 않는 환경 fallback 검증 |
 | `moodi/src/features/theme/types/theme.ts` | canonical `paper | midnight` theme contract |
 
 ## 디렉토리 규칙
 
 - Diary 전용 UI는 `features/diary/components`에 둔다. 현재 repository 전체에서 공유하는 `src/shared` UI는 없다.
 - route view는 `components/views`, layout/control은 `components/common`이 소유한다.
-- localStorage schema는 Repository 또는 해당 preference service만 알아야 한다.
-- 새 API adapter가 생기기 전에는 존재하지 않는 client, endpoint, DTO 파일을 문서에 추가하지 않는다.
+- backend DTO와 domain/view model은 adapter 파일에서만 변환한다.
+- device-local theme/sidebar preference를 제외한 Diary, draft, AI, user settings persistence는 backend API가 소유한다.

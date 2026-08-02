@@ -96,8 +96,7 @@ export function MyPage({
           <button
             className="auth-ghost-button"
             onClick={() => {
-              myPage.logout()
-              onLoggedOut()
+              void myPage.logout().then(onLoggedOut)
             }}
             type="button"
           >

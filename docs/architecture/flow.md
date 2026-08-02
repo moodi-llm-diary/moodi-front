@@ -1,5 +1,18 @@
 # 흐름 문서 - moodi
 
+## Backend integration 기준 흐름
+
+이 절은 2026-07 backend integration 이후의 현재 구현이다. 아래에 남아 있는 localStorage/local-search 서술은 이전 MVP 흐름 기록이며, 현재 동작과 충돌하면 이 절과 `docs/api/specification.md`가 우선한다.
+
+1. 앱은 `GET /api/v1/auth/session`으로 HttpOnly session을 확인하고 `csrfToken`을 메모리에만 둔다. session이 없으면 Diary 화면을 mount하지 않고 Google 로그인 화면을 표시한다.
+2. 로그인 성공은 `POST /auth/login-attempts` → Google Identity Services credential → form `POST /auth/google-credentials` → session 재조회 순서다. credential/token은 React state·URL·localStorage에 저장하지 않는다.
+3. `diaryStore.initialize`는 `ApiDiaryRepository.getEntries`와 `getDraft`를 호출한다. 목록 page는 detail DTO로 보완해 domain cache로 변환하며, UI가 backend DTO를 직접 사용하지 않는다.
+4. 기록 create/image upload/message create는 idempotency key를, entry/draft mutation은 직전 ETag의 `If-Match`를, 모든 mutation은 memory CSRF header를 사용한다. version conflict와 problem code는 UI-safe error로 표시한다.
+5. editor는 File을 `POST /diary-images`로 먼저 upload해 server image ID/content URL을 form state에 넣고, 이후 draft/entry body에는 `imageIds`만 보낸다.
+6. export는 `GET /diary-data`가 만든 v2 attachment를 바로 내려받는다. import와 전체 삭제는 HEAD confirmation token과 dataset ETag를 얻은 뒤 PUT/DELETE하며 backend가 draft/conversation 정리를 원자적으로 수행한다.
+7. `/ai`는 REST로 conversation/message/run을 만들고 backend SSE `message.delta`만 partial text로 표시한다. terminal event에서 message/source를 확정하며, 취소 시 stream abort와 `PUT /ai-runs/{id}/cancellation`을 함께 실행한다.
+8. user setting은 GET/PATCH `/users/me/settings`으로 동기화한다. theme/sidebar만 device-local preference다.
+
 ## 1. 앱 초기화와 저장 migration
 
 - Actor: 사용자
@@ -223,7 +236,7 @@
 - Entry point: `/settings`
 - Preconditions: Settings store가 service 기본값 또는 저장값으로 동기 초기화됨.
 - Steps:
-  1. `계정` 행은 기존 mock Login/MyPage overlay를 열고, `태그와 주제` 행은 `/tags`로 이동한다.
+  1. `계정` 행은 Google 기반 Login/Signup/MyPage overlay를 열고, `태그와 주제` 행은 `/tags`로 이동한다.
   2. 사용자는 기본으로 열린 화면 설정 disclosure에서 `paper | midnight` ThemeSelector와 font size를 선택한다.
   3. 새 entry 기본 lock, AI analysis, AI tone, response length, personalized question preference와 외부 연결·데이터 관리·개인정보 안내는 필요할 때 각 disclosure를 연다.
   4. hook action은 settings service에 versioned envelope 저장을 요청한다.
@@ -234,7 +247,7 @@
 - Theme compatibility: 저장된 `forest | rose | ocean`은 사용자 데이터를 지우지 않고 `paper`로 정규화하고, `App`은 canonical theme을 `html`과 theme root wrapper에 함께 반영한 뒤 현재 `--color-canvas`를 브라우저 `theme-color` meta와 동기화한다.
 - Empty state: 저장값이 없으면 medium font, lock off, AI on, calm guide, balanced, personalized questions on을 사용한다.
 - Error state: write 실패 시 기존 preference를 유지하고 persistence error toast를 표시한다.
-- Permission behavior: 인증 요구 없음. Settings의 계정 action은 기존 mock Login/MyPage 경계로 전달하며 shell의 profile action도 같은 경계를 재사용한다.
+- Permission behavior: 인증 요구 없음. Settings의 계정 action은 Google Login/Signup/MyPage 경계로 전달하며 shell의 profile action도 같은 경계를 재사용한다.
 - Retry or recovery: 같은 option을 다시 선택할 수 있다.
 - Side effects: settings/theme localStorage와 root CSS attribute 갱신.
 - Related API: 없음.
@@ -325,23 +338,25 @@
 - Related API: 없음. 외부 AI endpoint, request/response DTO, auth, consent, timeout, retry, rate limit, error mapping 계약은 미확정이다.
 - Related DB tables: 없음.
 
-## 13. Mock profile
+## 13. Google 기반 자체 계정
 
 - Actor: 사용자
 - Entry point: Settings의 `계정` 행, desktop Sidebar profile action 또는 mobile `나` menu
-- Preconditions: 실제 인증 API 계약 없음.
+- Preconditions: Google client ID, callback, 백엔드 session API 계약이 아직 구현되지 않았다.
 - Steps:
   1. 로그인하지 않은 사용자는 LoginPage로 이동한다.
-  2. App은 login/profile overlay를 History state에 push해 브라우저 Back과 화면 닫기를 동기화한다.
-  3. email/password form을 mock service가 형식 검증한다.
-  4. 성공하면 password를 제외한 mock `AuthUser`만 localStorage에 저장한다.
-  5. 로그인 사용자는 MyPage에서 profile을 확인하거나 logout한다.
-- Validation: email 형식과 password 최소 길이를 UI/application에서 검증한다.
-- Empty state: auth user가 없으면 login action을 표시한다.
-- Error state: validation 실패 message를 form에 표시한다.
-- Permission behavior: role/permission, token/session/refresh는 없다.
-- Retry or recovery: form 수정 후 다시 제출한다.
-- Side effects: `moodi.mvp.auth.user.v1` profile 생성 또는 제거.
+  2. App은 login/signup/profile overlay를 History state에 push해 브라우저 Back과 화면 닫기를 동기화한다.
+  3. LoginPage와 SignupPage는 `GoogleAuthPage`를 공유하며 각각 `login` 또는 `signup` intent를 auth hook으로 전달한다. 두 인증 화면은 돌아가기·theme selector를 표시하지 않고 `prefers-color-scheme`에 따른 light/dark theme을 사용하며 저장 preference는 바꾸지 않는다.
+  4. `useGoogleAuthPage -> authStore -> authGoogleService` 경계에서 Google 인증을 시작한다.
+  5. 현재 service 계약이 없으므로 typed error를 표시하고 local profile을 임의로 생성하지 않는다.
+  6. 향후 계약이 확정되면 성공한 서버 응답의 표시용 `AuthUser`만 profile service에 전달한다.
+  7. 로그인 사용자는 MyPage에서 profile을 확인하거나 logout한다.
+- Validation: 인증 provider와 백엔드 session 계약의 성공·실패 mapping을 auth service에서 검증한다.
+- Empty state: auth user가 없으면 LoginPage와 SignupPage 진입 action을 표시한다.
+- Error state: Google 연동 미설정 typed error를 화면의 alert로 표시한다.
+- Permission behavior: 실제 role/permission은 서버 계약 전까지 없다. credential과 session 원문은 브라우저 저장하지 않는다.
+- Retry or recovery: 오류 확인 후 Google action을 다시 시도한다.
+- Side effects: 계약 확정 전 성공 side effect 없음; 계약 확정 후 안전한 표시용 profile만 저장한다.
 - Related API: 없음. auth endpoint 계약 미확정.
 - Related DB tables: 없음.
 
@@ -351,7 +366,7 @@
 - Entry point: `npm run test:e2e`, `npm run test:e2e:visual`, `npm run test:e2e:mobile-ai`, mobile AI iteration/final scripts
 - Preconditions: npm dependency 설치와 Google Chrome 또는 Playwright Chromium 사용 가능.
 - Steps:
-  1. Playwright web server가 `127.0.0.1:3000`의 Vite 앱을 실행하거나 기존 서버를 재사용한다.
+  1. Playwright web server가 `http://localhost:5173`의 Vite 앱을 실행하거나 기존 서버를 재사용한다.
   2. 각 browser project가 독립 context를 열고 Moodi localStorage를 초기화해 canonical seed를 로드한다.
   3. 7개 project가 1440×900, 1280×800, 1024×768, 768×1024, 430×932, 390×844, 360×800을 렌더링한다. 430/390/360은 touch와 mobile emulation을 사용한다.
   4. journal flow suite가 긴 일기의 draft 복구부터 CRUD, cover/inline image role과 inline block 삭제 reconciliation, 태그·favorite까지 실행한다.

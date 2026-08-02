@@ -1,5 +1,7 @@
 # 컴포넌트 및 모듈 문서 - moodi
 
+> Backend integration note: Diary view/component는 browser storage, fetch, EventSource, multipart를 직접 호출하지 않는다. `useDiaryWorkspace`/`useJournalAIChat`이 use-case를 조합하고, `diaryStore`·`settingsStore`와 `ApiDiaryRepository`·`ApiJournalAIService`·`diaryImageUploadService`가 backend DTO, CSRF, ETag, SSE, image upload를 소유한다. 이 note는 이전 localStorage/local-search 설명보다 우선한다.
+
 ## 소유권과 분리 기준
 
 - `DiaryMvpPage`는 route별 view와 전역 overlay만 조립한다.
@@ -15,7 +17,7 @@
 
 | Module | 입력 | event/output | 책임 |
 | --- | --- | --- | --- |
-| `App` | auth/theme/settings stores | Login/MyPage/Diary 전환 | `html`과 wrapper의 theme, root font attribute, feature page 조립 |
+| `App` | auth/theme/settings stores | Login/Signup/MyPage/Diary 전환 | `html`과 wrapper의 theme, root font attribute, feature page 조립 |
 | `DiaryMvpPage` | theme/profile props, `useDiaryWorkspace` result | route view, overlay 조립 | Presentation 경계; AppShell에 draft, 최근 기록 최대 5개, 즐겨찾기 최대 3개와 route별 App Bar action을 view data로 전달 |
 | `AppShell` | active route, children, profile, draft/recent/favorite view data와 callbacks | navigation/recent/draft/profile/새 기록/새 AI 대화 intent | persisted Sidebar preference와 desktop Sidebar를 조립하고 그 오른쪽 semantic `<main>` 전체를 연속 Main area로 제공하며 Mobile App Bar·drawer·하단 navigation과 visual viewport CSS 변수를 동기화 |
 | `TodayView` | 오늘/최근/과거의 오늘 entries, draft, daily sentence, prompt | mood-prefilled quick/write/detail/entries/insights 이동 | 인사, 감정 check-in, 임시저장, 대표·최근 기억, 질문을 배경·radius·shadow 없는 editorial section과 divider로 연결하고 CTA·선택 control만 독립 surface로 표시 |
@@ -240,7 +242,7 @@ type SettingsPageProps = {
 }
 ```
 
-SettingsPage는 Diary entries를 import하지 않는다. `onOpenProfile`은 기존 mock Login/MyPage overlay intent, `onOpenTags`는 Diary route intent만 상위로 전달한다. export/import/delete 구현과 확인 상태는 `useDiaryWorkspace`가 소유한다. 외부 data 연결 button은 계약 미확정으로 disabled이며 어떤 SDK도 호출하지 않는다.
+SettingsPage는 Diary entries를 import하지 않는다. `onOpenProfile`은 Google Login/Signup/MyPage overlay intent, `onOpenTags`는 Diary route intent만 상위로 전달한다. export/import/delete 구현과 확인 상태는 `useDiaryWorkspace`가 소유한다. 외부 data 연결 button은 계약 미확정으로 disabled이며 어떤 SDK도 호출하지 않는다.
 
 ## 재사용과 금지 기준
 

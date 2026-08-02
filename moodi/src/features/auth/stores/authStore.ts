@@ -1,42 +1,54 @@
 import { create } from 'zustand'
-import {
-  authenticateMockUser,
-  clearMockAuthUser,
-  loadMockAuthUser,
-  persistMockAuthUser,
-} from '../services/authMockService'
-import type { AuthUser, LoginFormState } from '../types/auth'
+import { authenticateWithGoogle } from '../services/authGoogleService'
+import { loadCurrentSession, logoutCurrentSession } from '../services/authSessionService'
+import type { AuthUser, GoogleAuthenticationRequest } from '../types/auth'
 
 type AuthStoreState = {
   currentUser: AuthUser | null
-  login: (input: LoginFormState) => AuthUser
-  logout: () => boolean
+  status: 'idle' | 'loading' | 'ready' | 'error'
+  errorMessage: string | null
+  initialize: () => Promise<void>
+  loginWithGoogle: (request: GoogleAuthenticationRequest) => Promise<AuthUser>
+  logout: () => Promise<boolean>
 }
 
 /**
- * MVP 단계의 인증 상태를 소유한다.
- * TODO: 백엔드 인증 계약 확정 후 token/session persistence는 전용 auth adapter로 분리한다.
+ * 인증 상태와 사용자 profile 표시용 state를 소유한다.
+ * 실제 Google credential과 서버 session은 auth service의 외부 계약으로 격리한다.
  */
 export const useAuthStore = create<AuthStoreState>((set) => ({
-  currentUser: loadMockAuthUser(),
-  login: (input) => {
-    const authenticatedUser = authenticateMockUser(input)
+  currentUser: null,
+  status: 'idle',
+  errorMessage: null,
+  initialize: async () => {
+    set({ status: 'loading', errorMessage: null })
 
-    persistMockAuthUser(authenticatedUser)
-    set({ currentUser: authenticatedUser })
+    try {
+      const currentUser = await loadCurrentSession()
+      set({ currentUser, status: 'ready', errorMessage: null })
+    } catch (error) {
+      set({
+        currentUser: null,
+        status: 'error',
+        errorMessage: error instanceof Error ? error.message : '세션을 확인하지 못했습니다.',
+      })
+    }
+  },
+  loginWithGoogle: async (request) => {
+    const authenticatedUser = await authenticateWithGoogle(request)
+
+    set({ currentUser: authenticatedUser, status: 'ready', errorMessage: null })
 
     return authenticatedUser
   },
-  logout: () => {
-    let didClear = true
-
+  logout: async () => {
     try {
-      clearMockAuthUser()
+      await logoutCurrentSession()
+      set({ currentUser: null, status: 'ready', errorMessage: null })
+      return true
     } catch {
-      didClear = false
+      set({ currentUser: null, status: 'ready', errorMessage: '로그아웃을 완료하지 못했습니다.' })
+      return false
     }
-
-    set({ currentUser: null })
-    return didClear
   },
 }))

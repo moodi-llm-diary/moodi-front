@@ -1,9 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { journalAIConversationRepository } from '../repositories/localStorageJournalAIConversationRepository'
-import {
-  LocalJournalAIService,
-  sanitizeJournalConversations,
-} from '../services/journalAIService'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { getApiErrorMessage, ApiRequestError } from '../../../shared/api/apiError'
+import { ApiJournalAIService } from '../services/apiJournalAIService'
 import type { DiaryEntry } from '../types/diaryDomain'
 import type { AIConversation, JournalAIErrorCode } from '../types/journalAI'
 
@@ -18,12 +15,11 @@ export type JournalAIChatPhase =
   | 'no-results'
   | 'error'
 
-/** AI 채팅 화면의 대화·전송·취소 use-case를 JournalAIService 위에서 조합한다. */
-export function useJournalAIChat(entries: DiaryEntry[], isDiaryReady: boolean) {
-  const [service] = useState(
-    () => new LocalJournalAIService(journalAIConversationRepository, entries),
-  )
+/** AI conversation/run/SSE use-case를 API service 위에서 조합한다. */
+export function useJournalAIChat(_entries: DiaryEntry[], isDiaryReady: boolean) {
+  const [service] = useState(() => new ApiJournalAIService())
   const abortControllerRef = useRef<AbortController | null>(null)
+  const activeRunIdRef = useRef<string | null>(null)
   const conversationMutationRef = useRef(false)
   const [conversations, setConversations] = useState<AIConversation[]>([])
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null)
@@ -34,63 +30,77 @@ export function useJournalAIChat(entries: DiaryEntry[], isDiaryReady: boolean) {
   const [statusMessage, setStatusMessage] = useState<string | null>(null)
   const [suggestedQuestions, setSuggestedQuestions] = useState<string[]>([])
   const [isConversationMutating, setIsConversationMutating] = useState(false)
-  const visibleConversations = useMemo(
-    () => isDiaryReady ? sanitizeJournalConversations(conversations, entries) : [],
-    [conversations, entries, isDiaryReady],
-  )
-  const activeConversation =
-    visibleConversations.find((conversation) => conversation.id === activeConversationId) ?? null
+  const activeConversation = conversations.find((conversation) => conversation.id === activeConversationId) ?? null
+
+  const replaceConversation = useCallback((conversation: AIConversation) => {
+    setConversations((currentConversations) => {
+      const exists = currentConversations.some((candidate) => candidate.id === conversation.id)
+      const nextConversations = exists
+        ? currentConversations.map((candidate) => candidate.id === conversation.id ? conversation : candidate)
+        : [conversation, ...currentConversations]
+
+      return [...nextConversations].sort(
+        (left, right) => right.updatedAt.localeCompare(left.updatedAt),
+      )
+    })
+  }, [])
+
+  const loadConversation = useCallback(async (conversationId: string) => {
+    const conversation = await service.getConversation(conversationId)
+    if (!conversation) throw new Error('대화를 찾지 못했습니다.')
+    replaceConversation(conversation)
+    return conversation
+  }, [replaceConversation, service])
+
+  const refreshConversations = useCallback(async (preferredConversationId?: string | null) => {
+    const summaries = await service.getConversations()
+    const nextActiveId = preferredConversationId === undefined
+      ? activeConversationId
+      : preferredConversationId
+    const safeActiveId = nextActiveId && summaries.some((conversation) => conversation.id === nextActiveId)
+      ? nextActiveId
+      : summaries[0]?.id ?? null
+
+    if (safeActiveId) {
+      const detail = await service.getConversation(safeActiveId)
+      if (detail) {
+        const nextConversations = summaries.map((conversation) =>
+          conversation.id === detail.id ? detail : conversation,
+        )
+        setConversations(nextConversations)
+      } else {
+        setConversations(summaries)
+      }
+    } else {
+      setConversations([])
+    }
+    setActiveConversationId(safeActiveId)
+    return safeActiveId
+  }, [activeConversationId, service])
 
   useEffect(() => {
-    service.setEntries(entries)
-  }, [entries, service])
-
-  useEffect(() => {
-    if (!isDiaryReady) return
+    if (!isDiaryReady) {
+      return
+    }
     let isCurrent = true
-
-    service
-      .getConversations()
-      .then((storedConversations) => {
-        if (!isCurrent) return
-        setConversations(storedConversations)
-        setActiveConversationId(storedConversations[0]?.id ?? null)
-        setPhase('idle')
-      })
-      .catch((error: unknown) => {
-        if (!isCurrent) return
-        setErrorMessage(getErrorMessage(error, 'AI 대화 기록을 불러오지 못했습니다.'))
-        setErrorCode(getErrorCode(error))
-        setPhase('error')
-      })
+    const timerId = window.setTimeout(() => {
+      void refreshConversations(null)
+        .then(() => {
+          if (isCurrent) setPhase('idle')
+        })
+        .catch((error: unknown) => {
+          if (!isCurrent) return
+          setErrorMessage(getApiErrorMessage(error, 'AI 대화를 불러오지 못했습니다.'))
+          setErrorCode(getErrorCode(error))
+          setPhase('error')
+        })
+    }, 0)
 
     return () => {
       isCurrent = false
+      window.clearTimeout(timerId)
     }
-  }, [isDiaryReady, service])
-
-  useEffect(() => {
-    if (!isDiaryReady) return
-    if (
-      phase === 'loading' ||
-      phase === 'sending' ||
-      phase === 'generating' ||
-      phase === 'streaming' ||
-      phase === 'cancelling'
-    ) return
-
-    void service
-      .getConversations()
-      .then((nextConversations) => setConversations(nextConversations))
-      .catch((error: unknown) => {
-        setConversations((currentConversations) =>
-          sanitizeJournalConversations(currentConversations, entries),
-        )
-        setErrorMessage(getErrorMessage(error, 'AI 대화 기록을 갱신하지 못했습니다.'))
-        setErrorCode(getErrorCode(error))
-        setPhase('error')
-      })
-  }, [entries, isDiaryReady, phase, service])
+  }, [isDiaryReady, refreshConversations])
 
   useEffect(
     () => () => {
@@ -99,74 +109,53 @@ export function useJournalAIChat(entries: DiaryEntry[], isDiaryReady: boolean) {
     [],
   )
 
-  const refreshConversations = async (preferredConversationId?: string | null) => {
-    const nextConversations = await service.getConversations()
-    const nextActiveId = preferredConversationId === undefined
-      ? activeConversationId
-      : preferredConversationId
-    const safeActiveId = nextActiveId && nextConversations.some(({ id }) => id === nextActiveId)
-      ? nextActiveId
-      : nextConversations[0]?.id ?? null
-
-    setConversations(nextConversations)
-    setActiveConversationId(safeActiveId)
-
-    return { nextConversations, safeActiveId }
-  }
-
-  const refreshConversationsBestEffort = async (
-    preferredConversationId?: string | null,
-  ) => {
-    try {
-      await refreshConversations(preferredConversationId)
-    } catch {
-      // The originating send/cancel error owns the visible terminal state.
-    }
-  }
-
-  const createConversation = async () => {
-    if (
-      !isDiaryReady ||
-      abortControllerRef.current ||
-      conversationMutationRef.current ||
-      phase === 'loading'
-    ) {
+  const createConversation = useCallback(async () => {
+    if (!isDiaryReady || abortControllerRef.current || conversationMutationRef.current || phase === 'loading') {
       return null
     }
-
     conversationMutationRef.current = true
     setIsConversationMutating(true)
 
     try {
+      const conversation = await service.createConversation()
+      replaceConversation(conversation)
+      setActiveConversationId(conversation.id)
       setErrorMessage(null)
       setErrorCode(null)
       setStatusMessage(null)
-      const conversation = await service.createConversation()
-      await refreshConversations(conversation.id)
       setPhase('idle')
-
       return conversation
     } catch (error) {
-      setErrorMessage(getErrorMessage(error, '새 대화를 만들지 못했습니다.'))
+      setErrorMessage(getApiErrorMessage(error, '새 대화를 만들지 못했습니다.'))
       setErrorCode(getErrorCode(error))
       setPhase('error')
-
       return null
     } finally {
       conversationMutationRef.current = false
       setIsConversationMutating(false)
     }
-  }
+  }, [isDiaryReady, phase, replaceConversation, service])
 
-  const openConversation = (conversationId: string) => {
+  const openConversation = useCallback((conversationId: string) => {
     if (abortControllerRef.current || conversationMutationRef.current) return
-    setActiveConversationId(conversationId)
+    setPhase('loading')
     setErrorMessage(null)
     setErrorCode(null)
     setStatusMessage(null)
-  }
 
-  const sendMessage = async (content: string) => {
+    void loadConversation(conversationId)
+      .then(() => {
+        setActiveConversationId(conversationId)
+        setPhase('idle')
+      })
+      .catch((error: unknown) => {
+        setErrorMessage(getApiErrorMessage(error, '대화를 열지 못했습니다.'))
+        setErrorCode(getErrorCode(error))
+        setPhase('error')
+      })
+  }, [loadConversation])
+
+  const sendMessage = useCallback(async (content: string) => {
     if (
       abortControllerRef.current ||
       conversationMutationRef.current ||
@@ -180,16 +169,15 @@ export function useJournalAIChat(entries: DiaryEntry[], isDiaryReady: boolean) {
     setPendingAssistantContent('')
 
     let conversationId = activeConversationId
-
     if (!conversationId) {
       const conversation = await createConversation()
       if (!conversation) return false
       conversationId = conversation.id
     }
     const requestConversationId = conversationId
-
     const controller = new AbortController()
     abortControllerRef.current = controller
+    activeRunIdRef.current = null
     setPhase('sending')
 
     try {
@@ -198,12 +186,14 @@ export function useJournalAIChat(entries: DiaryEntry[], isDiaryReady: boolean) {
         content,
         signal: controller.signal,
         onProgress: (event) => {
-          if (event.type === 'generating') {
-            setPhase('generating')
-            void refreshConversationsBestEffort(requestConversationId)
+          if (event.type === 'run-started') {
+            activeRunIdRef.current = event.runId
             return
           }
-
+          if (event.type === 'generating') {
+            setPhase('generating')
+            return
+          }
           setPendingAssistantContent(event.content)
           setPhase('streaming')
         },
@@ -213,142 +203,122 @@ export function useJournalAIChat(entries: DiaryEntry[], isDiaryReady: boolean) {
       setSuggestedQuestions(response.suggestedQuestions)
       setPendingAssistantContent('')
       setPhase(response.resultKind === 'no-results' ? 'no-results' : 'idle')
-
       return true
     } catch (error) {
       setPendingAssistantContent('')
-      await refreshConversationsBestEffort(requestConversationId)
-
       if (error instanceof Error && error.name === 'AbortError') {
-        setStatusMessage('로컬 기록 검색을 중단했어요.')
+        setStatusMessage('AI 응답 생성을 중단했어요.')
         setPhase('cancelled')
         return false
       }
-
-      setErrorMessage(getErrorMessage(error, '기록을 검색하지 못했습니다.'))
+      setErrorMessage(getApiErrorMessage(error, 'AI 응답을 만들지 못했습니다.'))
       setErrorCode(getErrorCode(error))
       setPhase('error')
       return false
     } finally {
       abortControllerRef.current = null
+      activeRunIdRef.current = null
     }
-  }
+  }, [activeConversationId, createConversation, isDiaryReady, phase, refreshConversations, service])
 
-  const cancelMessage = () => {
+  const cancelMessage = useCallback(() => {
+    const runId = activeRunIdRef.current
     if (!abortControllerRef.current) return
     setPhase('cancelling')
+    if (runId) void service.cancelMessage?.(runId).catch(() => undefined)
     abortControllerRef.current.abort()
-  }
+  }, [service])
 
-  const reportSourceLoadFailure = () => {
-    setErrorCode('source-load-failed')
-    setErrorMessage('연결된 기록이 삭제되었거나 잠금 상태로 바뀌었습니다.')
-    setPhase('error')
-  }
-
-  const deleteConversation = async (conversationId: string) => {
+  const deleteConversation = useCallback(async (conversationId: string) => {
     if (abortControllerRef.current || conversationMutationRef.current) return false
     conversationMutationRef.current = true
     setIsConversationMutating(true)
 
     try {
       await service.deleteConversation(conversationId)
-      await refreshConversations(
-        activeConversationId === conversationId ? null : activeConversationId,
-      )
+      await refreshConversations(activeConversationId === conversationId ? null : activeConversationId)
       setStatusMessage('대화를 삭제했어요.')
-      setErrorMessage(null)
-      setErrorCode(null)
       setPhase('idle')
-
       return true
     } catch (error) {
-      setErrorMessage(getErrorMessage(error, '대화를 삭제하지 못했습니다.'))
+      setErrorMessage(getApiErrorMessage(error, '대화를 삭제하지 못했습니다.'))
       setErrorCode(getErrorCode(error))
       setPhase('error')
-
       return false
     } finally {
       conversationMutationRef.current = false
       setIsConversationMutating(false)
     }
-  }
+  }, [activeConversationId, refreshConversations, service])
 
-  const renameConversation = async (conversationId: string, title: string) => {
+  const renameConversation = useCallback(async (conversationId: string, title: string) => {
     if (abortControllerRef.current || conversationMutationRef.current) return false
     conversationMutationRef.current = true
     setIsConversationMutating(true)
 
     try {
-      await service.renameConversation(conversationId, title)
-      await refreshConversations(conversationId)
+      const conversation = await service.renameConversation(conversationId, title)
+      replaceConversation({ ...conversation, messages: activeConversation?.id === conversationId ? activeConversation.messages : [] })
       setStatusMessage('대화 이름을 바꿨어요.')
-      setErrorMessage(null)
-      setErrorCode(null)
-
+      setPhase('idle')
       return true
     } catch (error) {
-      setErrorMessage(getErrorMessage(error, '대화 이름을 바꾸지 못했습니다.'))
+      setErrorMessage(getApiErrorMessage(error, '대화 이름을 바꾸지 못했습니다.'))
       setErrorCode(getErrorCode(error))
       setPhase('error')
-
       return false
     } finally {
       conversationMutationRef.current = false
       setIsConversationMutating(false)
     }
-  }
+  }, [activeConversation, replaceConversation, service])
 
-  const retry = async () => {
-    if (abortControllerRef.current || conversationMutationRef.current) return
+  const retry = useCallback(async () => {
     setPhase('loading')
     setErrorMessage(null)
     setErrorCode(null)
-
     try {
       await refreshConversations(activeConversationId)
       setPhase('idle')
     } catch (error) {
-      setErrorMessage(getErrorMessage(error, 'AI 대화 기록을 불러오지 못했습니다.'))
+      setErrorMessage(getApiErrorMessage(error, 'AI 대화를 불러오지 못했습니다.'))
       setErrorCode(getErrorCode(error))
       setPhase('error')
     }
-  }
+  }, [activeConversationId, refreshConversations])
 
-  const resetConversationStorage = async () => {
-    if (!isDiaryReady || abortControllerRef.current || conversationMutationRef.current) return false
+  const resetConversationStorage = useCallback(async () => {
+    if (abortControllerRef.current || conversationMutationRef.current) return false
     conversationMutationRef.current = true
     setIsConversationMutating(true)
-    setPhase('loading')
-
     try {
       await service.resetConversationStorage()
       setConversations([])
       setActiveConversationId(null)
-      setErrorMessage(null)
-      setErrorCode(null)
-      setPendingAssistantContent('')
-      setSuggestedQuestions([])
-      setStatusMessage('손상된 AI 대화 기록을 초기화했어요. 일기 원문은 삭제하지 않았습니다.')
+      setStatusMessage('AI 대화만 초기화했어요. 일기 원문은 유지됩니다.')
       setPhase('idle')
-
       return true
     } catch (error) {
-      setErrorMessage(getErrorMessage(error, 'AI 대화 기록을 초기화하지 못했습니다.'))
+      setErrorMessage(getApiErrorMessage(error, 'AI 대화를 초기화하지 못했습니다.'))
       setErrorCode(getErrorCode(error))
       setPhase('error')
-
       return false
     } finally {
       conversationMutationRef.current = false
       setIsConversationMutating(false)
     }
-  }
+  }, [service])
+
+  const reportSourceLoadFailure = useCallback(() => {
+    setErrorCode('source-load-failed')
+    setErrorMessage('연결된 기록을 불러오지 못했습니다.')
+    setPhase('error')
+  }, [])
 
   return {
     activeConversation,
     activeConversationId,
-    conversations: visibleConversations,
+    conversations,
     errorMessage,
     errorCode,
     pendingAssistantContent,
@@ -356,7 +326,6 @@ export function useJournalAIChat(entries: DiaryEntry[], isDiaryReady: boolean) {
     isConversationMutating,
     statusMessage,
     suggestedQuestions,
-    adapterKind: 'local-search' as const,
     cancelMessage,
     createConversation,
     deleteConversation,
@@ -369,32 +338,11 @@ export function useJournalAIChat(entries: DiaryEntry[], isDiaryReady: boolean) {
   }
 }
 
-function getErrorMessage(error: unknown, fallbackMessage: string): string {
-  return error instanceof Error && error.message ? error.message : fallbackMessage
-}
-
 function getErrorCode(error: unknown): JournalAIErrorCode {
-  if (isErrorWithCode(error)) return error.code
-  if (
-    error instanceof Error &&
-    /브라우저|저장|localStorage|대화.*(?:형식|ID)|지원하지 않는 AI 대화/i.test(error.message)
-  ) {
-    return 'storage-unavailable'
+  if (error instanceof ApiRequestError) {
+    if (error.status === 401) return 'auth-expired'
+    if (error.status === 503) return 'service-unavailable'
+    if (error.status === 0) return 'network'
   }
-
   return 'unknown'
-}
-
-function isErrorWithCode(error: unknown): error is Error & { code: JournalAIErrorCode } {
-  if (!(error instanceof Error) || !('code' in error)) return false
-
-  return [
-    'network',
-    'auth-expired',
-    'service-unavailable',
-    'source-load-failed',
-    'storage-corrupted',
-    'storage-unavailable',
-    'unknown',
-  ].includes(String(error.code))
 }

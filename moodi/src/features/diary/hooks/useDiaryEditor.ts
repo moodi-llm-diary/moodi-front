@@ -12,6 +12,7 @@ import {
   getStandaloneDiaryImages,
   isDiaryImageReferenced,
 } from '../services/diaryImageService'
+import { uploadDiaryImage } from '../services/diaryImageUploadService'
 
 export type DiaryAutoSaveStatus =
   | 'idle'
@@ -513,7 +514,11 @@ export function useDiaryEditor({
       }
 
       try {
-        const image = { ...await readImageFile(file), role: 'cover' as const }
+        const image = await uploadDiaryImage(
+          file,
+          'cover',
+          createUploadedImageAlt(file.name),
+        )
         const imagesWithoutCover = currentImages.filter(
           (candidate) => candidate.role !== 'cover' && candidate.id !== existingCover?.id,
         )
@@ -543,7 +548,11 @@ export function useDiaryEditor({
       }
 
       try {
-        const image = { ...await readImageFile(file), role: 'inline' as const }
+        const image = await uploadDiaryImage(
+          file,
+          'inline',
+          createUploadedImageAlt(file.name),
+        )
         window.setTimeout(() => {
           const latestImages = latestValueRef.current.images
 
@@ -670,25 +679,6 @@ function hasDraftContent(
       value.isFavorite ||
       value.isLocked !== isLockedByDefault,
   )
-}
-
-function readImageFile(file: File): Promise<DiaryImage> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-
-    reader.onerror = () => reject(reader.error)
-    reader.onload = () =>
-      resolve({
-        id: createImageId(),
-        url: String(reader.result),
-        alt: createUploadedImageAlt(file.name),
-      })
-    reader.readAsDataURL(file)
-  })
-}
-
-function createImageId(): string {
-  return globalThis.crypto?.randomUUID?.() ?? `image-${Date.now()}-${Math.random().toString(16).slice(2)}`
 }
 
 function createUploadedImageAlt(fileName: string): string {

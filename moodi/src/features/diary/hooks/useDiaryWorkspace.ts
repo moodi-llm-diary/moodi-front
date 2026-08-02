@@ -42,16 +42,10 @@ export type ConfirmationState =
   | { kind: 'recover' }
   | null
 
-type UseDiaryWorkspaceOptions = {
-  onResetProfileAndPreferences: () => boolean
-}
-
 /**
  * Moodi의 route별 UI use-case를 store, query service, editor hook 위에서 조합한다.
  */
-export function useDiaryWorkspace({
-  onResetProfileAndPreferences,
-}: UseDiaryWorkspaceOptions) {
+export function useDiaryWorkspace() {
   const entries = useDiaryStore((state) => state.entries)
   const draft = useDiaryStore((state) => state.draft)
   const status = useDiaryStore((state) => state.status)
@@ -440,14 +434,8 @@ export function useDiaryWorkspace({
 
       if (confirmation.kind === 'all') {
         await deleteAllDiaryData()
-        const didResetPreferences = onResetProfileAndPreferences()
         setConfirmation(null)
-        showToast(
-          didResetPreferences
-            ? 'Moodi의 로컬 데이터를 모두 삭제했어요.'
-            : '일기는 삭제했지만 일부 프로필 또는 화면 설정을 브라우저에서 지우지 못했어요.',
-          didResetPreferences ? 'success' : 'error',
-        )
+        showToast('일기, 임시저장, 사진과 AI 대화를 모두 삭제했어요. 계정과 설정은 유지됩니다.', 'success')
         navigate({ name: 'home' })
         return
       }
@@ -487,17 +475,20 @@ export function useDiaryWorkspace({
     editor,
     journalAI,
     navigate,
-    onResetProfileAndPreferences,
     replaceEntries,
     recoverDiaryStorage,
     showToast,
     todayKey,
   ])
 
-  const exportEntries = useCallback(() => {
-    downloadDiaryExport(entries)
-    showToast('기록 내보내기 파일을 만들었어요.', 'success')
-  }, [entries, showToast])
+  const exportEntries = useCallback(async () => {
+    try {
+      await downloadDiaryExport()
+      showToast('기록 내보내기 파일을 만들었어요.', 'success')
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : '기록을 내보내지 못했습니다.', 'error')
+    }
+  }, [showToast])
 
   const requestImport = useCallback(
     async (file: File) => {

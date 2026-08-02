@@ -1,5 +1,7 @@
 # Visual Benchmark - moodi
 
+> Backend integration note: `/ai`의 UI는 local-search 고지가 아니라 backend AI run 상태(queued/generating/SSE streaming/completed/no-results/failed/cancelled)와 실제 server source를 표시한다. history mutation은 active run 중 비활성화하고, UI가 browser-local AI 결과나 가짜 stream을 만들지 않는다.
+
 ## 단일 디자인 방향
 
 Moodi는 ChatGPT와 Notion에서 구조만, Apple 소비자용 제품에서 절제된 시각 원칙만 참고한다. 좌측의 접이식 전역 탐색, 최근 기록 접근, 넓은 중앙 작업 영역과 progressive disclosure를 사용하되 어느 제품도 픽셀 단위로 복제하지 않는다. 최종 인상은 생산성 도구보다 따뜻하고 사적인 개인 일기장이어야 한다.

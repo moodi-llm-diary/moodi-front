@@ -35,6 +35,8 @@ export class DiaryRepositoryError extends Error {
  * HTTP/error mapping 계약이 확정되면 이 인터페이스의 API adapter를 추가한다.
  */
 export interface DiaryRepository {
+  /** true이면 server가 분석/파생 데이터를 소유하며 local mock 분석을 실행하지 않는다. */
+  readonly usesRemoteAnalysis?: boolean
   /** 저장된 전체 기록을 반환한다. */
   getEntries(): Promise<DiaryEntry[]>
   /** id에 해당하는 기록 또는 null을 반환한다. */

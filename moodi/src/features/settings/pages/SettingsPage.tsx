@@ -65,7 +65,8 @@ export function SettingsPage({
   const settings = useSettingsPreferences()
   const importInputRef = useRef<HTMLInputElement>(null)
 
-  const notifyPreferenceResult = (isSaved: boolean) => {
+  const notifyPreferenceResult = async (result: boolean | Promise<boolean>) => {
+    const isSaved = await result
     onToast(
       isSaved
         ? '설정을 저장했어요.'
@@ -142,7 +143,7 @@ export function SettingsPage({
                       checked={settings.preferences.fontSize === option.value}
                       className="settings-choice-input"
                       name="settings-font-size"
-                      onChange={() => notifyPreferenceResult(settings.setFontSize(option.value))}
+                      onChange={() => void notifyPreferenceResult(settings.setFontSize(option.value))}
                       type="radio"
                       value={option.value}
                     />
@@ -173,7 +174,7 @@ export function SettingsPage({
               <input
                 checked={settings.preferences.isEntryLockEnabledByDefault}
                 onChange={(event) =>
-                  notifyPreferenceResult(
+                  void notifyPreferenceResult(
                     settings.setEntryLockEnabledByDefault(event.target.checked),
                   )
                 }
@@ -210,7 +211,7 @@ export function SettingsPage({
               <input
                 checked={settings.preferences.isAiAnalysisEnabled}
                 onChange={(event) =>
-                  notifyPreferenceResult(
+                  void notifyPreferenceResult(
                     settings.setAiAnalysisEnabled(event.target.checked),
                   )
                 }
@@ -236,7 +237,7 @@ export function SettingsPage({
                       checked={settings.preferences.aiTone === option.value}
                       className="settings-choice-input"
                       name="settings-ai-tone"
-                      onChange={() => notifyPreferenceResult(settings.setAiTone(option.value))}
+                      onChange={() => void notifyPreferenceResult(settings.setAiTone(option.value))}
                       type="radio"
                       value={option.value}
                     />
@@ -269,7 +270,7 @@ export function SettingsPage({
                       className="settings-choice-input"
                       name="settings-ai-response-length"
                       onChange={() =>
-                        notifyPreferenceResult(
+                        void notifyPreferenceResult(
                           settings.setAiResponseLength(option.value),
                         )
                       }
@@ -294,7 +295,7 @@ export function SettingsPage({
                 checked={settings.preferences.isPersonalizedQuestionsEnabled}
                 disabled={!settings.preferences.isAiAnalysisEnabled}
                 onChange={(event) =>
-                  notifyPreferenceResult(
+                  void notifyPreferenceResult(
                     settings.setPersonalizedQuestionsEnabled(event.target.checked),
                   )
                 }

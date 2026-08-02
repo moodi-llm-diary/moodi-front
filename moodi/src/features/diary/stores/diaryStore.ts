@@ -5,10 +5,9 @@ import {
   type DiaryAnalysisService,
 } from '../services/diaryAnalysisService'
 import {
-  LocalStorageDiaryRepository,
+  ApiDiaryRepository,
   type DiaryRepository,
 } from '../repositories'
-import { journalAIConversationRepository } from '../repositories/localStorageJournalAIConversationRepository'
 import type { DiaryEntry } from '../types/diaryDomain'
 import type {
   CreateDiaryEntryInput,
@@ -126,7 +125,7 @@ export function createDiaryStore(
 
       try {
         const { shouldAnalyze = true, ...repositoryInput } = input
-        const analysis = shouldAnalyze
+        const analysis = shouldAnalyze && !repository.usesRemoteAnalysis
           ? input.aiInsight ?? await analysisService.analyze(
               toAnalysisInput(input),
               get().entries,
@@ -164,7 +163,7 @@ export function createDiaryStore(
         const shouldRefreshAnalysis = hasAnalysisRelevantChanges(repositoryInput)
         const nextInput = !shouldAnalyze
           ? { ...repositoryInput, aiInsight: null, aiTopics: [] }
-          : shouldRefreshAnalysis && !repositoryInput.aiInsight
+          : shouldRefreshAnalysis && !repositoryInput.aiInsight && !repository.usesRemoteAnalysis
             ? await withRefreshedAnalysis(
                 entryId,
                 existingEntry,
@@ -204,19 +203,12 @@ export function createDiaryStore(
           await repository.clearDraft()
         }
         await repository.deleteEntry(entryId)
-        const conversationCleanupFailed = await journalAIConversationRepository
-          .removeEntryReferences(entryId)
-          .then(() => false)
-          .catch(() => true)
-
         set((state) => ({
           entries: state.entries.filter((entry) => entry.id !== entryId),
           draft: linkedDraft ? null : state.draft,
           mutationStatus: 'idle',
           errorMessage: null,
-          initializationWarning: conversationCleanupFailed
-            ? '기록은 삭제했지만 이전 AI 대화의 출처를 정리하지 못했어요. AI 탭을 열면 현재 기록 기준으로 다시 확인합니다.'
-            : state.initializationWarning,
+          initializationWarning: state.initializationWarning,
         }))
       } catch (error) {
         if (linkedDraft) {
@@ -302,11 +294,6 @@ export function createDiaryStore(
       try {
         const importedEntries = await repository.replaceEntries(entries)
         let draftCleanupFailed = false
-        const conversationCleanupFailed = await journalAIConversationRepository
-          .clearConversations()
-          .then(() => false)
-          .catch(() => true)
-
         try {
           await repository.clearDraft()
         } catch {
@@ -318,9 +305,7 @@ export function createDiaryStore(
           draft: draftCleanupFailed ? get().draft : null,
           mutationStatus: 'idle',
           errorMessage: null,
-          initializationWarning: conversationCleanupFailed
-            ? '기록은 가져왔지만 이전 AI 대화를 정리하지 못했어요.'
-            : null,
+          initializationWarning: null,
         })
 
         return { entries: importedEntries, draftCleanupFailed }
@@ -339,18 +324,12 @@ export function createDiaryStore(
 
       try {
         await repository.deleteAllData()
-        const conversationCleanupFailed = await journalAIConversationRepository
-          .clearConversations()
-          .then(() => false)
-          .catch(() => true)
         set({
           entries: [],
           draft: null,
           mutationStatus: 'idle',
           errorMessage: null,
-          initializationWarning: conversationCleanupFailed
-            ? '일기는 삭제했지만 AI 대화 기록을 브라우저에서 지우지 못했어요.'
-            : null,
+          initializationWarning: null,
         })
       } catch (error) {
         set({
@@ -366,19 +345,13 @@ export function createDiaryStore(
 
       try {
         await repository.deleteAllData()
-        const conversationCleanupFailed = await journalAIConversationRepository
-          .clearConversations()
-          .then(() => false)
-          .catch(() => true)
         set({
           entries: [],
           draft: null,
           status: 'ready',
           mutationStatus: 'idle',
           errorMessage: null,
-          initializationWarning: conversationCleanupFailed
-            ? '일기 저장소는 초기화했지만 AI 대화 기록을 지우지 못했어요.'
-            : null,
+          initializationWarning: null,
         })
       } catch (error) {
         set({
@@ -395,10 +368,10 @@ export function createDiaryStore(
   }))
 }
 
-/** 앱 기본 localStorage Repository singleton이다. */
-export const diaryRepository: DiaryRepository = new LocalStorageDiaryRepository()
+/** 앱 기본 backend API Repository singleton이다. */
+export const diaryRepository: DiaryRepository = new ApiDiaryRepository()
 
-/** 앱에서 사용하는 기본 localStorage-backed Diary store다. */
+/** 앱에서 사용하는 기본 backend API-backed Diary store다. */
 export const useDiaryStore = createDiaryStore(diaryRepository)
 
 async function ensureStoreReady(

@@ -2,23 +2,32 @@ import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 're
 import { useAuthStore } from './features/auth/stores/authStore'
 import { LoginPage } from './features/auth/pages/LoginPage'
 import { MyPage } from './features/auth/pages/MyPage'
+import { SignupPage } from './features/auth/pages/SignupPage'
 import { DiaryMvpPage } from './features/diary/pages/DiaryMvpPage'
 import { useThemePreference } from './features/theme/hooks/useThemePreference'
+import { useSystemThemePreference } from './features/theme/hooks/useSystemThemePreference'
 import { useSettingsStore } from './features/settings/stores/settingsStore'
-import { useMoodiDataReset } from './features/settings/hooks/useMoodiDataReset'
 
-type AppRoute = 'diary' | 'login' | 'myPage'
+type AppRoute = 'diary' | 'login' | 'signup' | 'myPage'
 
 function App() {
   const [appRoute, setAppRoute] = useState<AppRoute>(() => readAppRouteFromHistory())
   const currentUser = useAuthStore((state) => state.currentUser)
+  const authStatus = useAuthStore((state) => state.status)
+  const initializeAuth = useAuthStore((state) => state.initialize)
   const fontSize = useSettingsStore((state) => state.preferences.fontSize)
+  const initializeSettings = useSettingsStore((state) => state.initialize)
   const themePreference = useThemePreference()
-  const resetProfileAndPreferences = useMoodiDataReset()
+  const systemTheme = useSystemThemePreference()
   const previousAppRouteRef = useRef(appRoute)
+  const isAuthenticationScreen =
+    appRoute === 'login' ||
+    appRoute === 'signup' ||
+    (appRoute === 'diary' && authStatus === 'ready' && !currentUser)
+  const activeTheme = isAuthenticationScreen ? systemTheme : themePreference.activeTheme
 
   useLayoutEffect(() => {
-    document.documentElement.dataset.moodiTheme = themePreference.activeTheme
+    document.documentElement.dataset.moodiTheme = activeTheme
     const themeColorMeta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')
     const previousThemeColor = themeColorMeta?.content
     const canvasColor = window
@@ -32,7 +41,7 @@ function App() {
       delete document.documentElement.dataset.moodiTheme
       if (themeColorMeta && previousThemeColor) themeColorMeta.content = previousThemeColor
     }
-  }, [themePreference.activeTheme])
+  }, [activeTheme])
 
   useEffect(() => {
     const handlePopState = () => setAppRoute(readAppRouteFromHistory())
@@ -41,6 +50,18 @@ function App() {
 
     return () => window.removeEventListener('popstate', handlePopState)
   }, [])
+
+  useEffect(() => {
+    if (authStatus === 'idle') {
+      void initializeAuth()
+    }
+  }, [authStatus, initializeAuth])
+
+  useEffect(() => {
+    if (authStatus === 'ready' && currentUser) {
+      void initializeSettings()
+    }
+  }, [authStatus, currentUser, initializeSettings])
 
   useEffect(() => {
     document.documentElement.dataset.moodiFontSize = fontSize
@@ -99,11 +120,15 @@ function App() {
   if (appRoute === 'login') {
     content = (
       <LoginPage
-        activeTheme={themePreference.activeTheme}
-        onSelectTheme={themePreference.setActiveTheme}
-        onBack={closeAppRoute}
         onLoginSuccess={closeAppRoute}
-        themeOptions={themePreference.themeOptions}
+        onOpenSignup={() => replaceAppRoute('signup')}
+      />
+    )
+  } else if (appRoute === 'signup') {
+    content = (
+      <SignupPage
+        onLoginSuccess={closeAppRoute}
+        onOpenLogin={() => replaceAppRoute('login')}
       />
     )
   } else if (appRoute === 'myPage') {
@@ -117,6 +142,21 @@ function App() {
         themeOptions={themePreference.themeOptions}
       />
     )
+  } else if (authStatus === 'loading' || authStatus === 'idle') {
+    content = (
+      <main className="auth-app" tabIndex={-1}>
+        <section className="auth-shell auth-surface">
+          <p>로그인 상태를 확인하고 있어요.</p>
+        </section>
+      </main>
+    )
+  } else if (!currentUser) {
+    content = (
+      <LoginPage
+        onLoginSuccess={closeAppRoute}
+        onOpenSignup={() => replaceAppRoute('signup')}
+      />
+    )
   } else {
     content = (
       <DiaryMvpPage
@@ -124,7 +164,6 @@ function App() {
         authUserLabel={currentUser?.displayName}
         onOpenLogin={() => openAppRoute('login')}
         onOpenMyPage={() => openAppRoute(currentUser ? 'myPage' : 'login')}
-        onResetProfileAndPreferences={resetProfileAndPreferences}
         onSelectTheme={themePreference.setActiveTheme}
         themeOptions={themePreference.themeOptions}
       />
@@ -134,7 +173,7 @@ function App() {
   return (
     <div
       className="moodi-theme-root"
-      data-moodi-theme={themePreference.activeTheme}
+      data-moodi-theme={activeTheme}
     >
       {content}
     </div>
@@ -158,5 +197,5 @@ function readHistoryState(): MoodiHistoryState {
 function readAppRouteFromHistory(): AppRoute {
   const route = readHistoryState().moodiAppRoute
 
-  return route === 'login' || route === 'myPage' ? route : 'diary'
+  return route === 'login' || route === 'signup' || route === 'myPage' ? route : 'diary'
 }

@@ -12,6 +12,10 @@ dist
 dist-ssr
 *.local
 
+# Local environment files may contain provider credentials or deployment settings.
+.env.local
+.env.*.local
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

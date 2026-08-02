@@ -2,6 +2,7 @@ import { isThemeName, type ThemeName } from '../types/theme'
 
 export const THEME_STORAGE_KEY = 'moodi.mvp.theme.v1'
 export const DEFAULT_THEME_NAME: ThemeName = 'paper'
+export const SYSTEM_DARK_COLOR_SCHEME_QUERY = '(prefers-color-scheme: dark)'
 
 const LEGACY_LIGHT_THEME_NAMES = new Set(['forest', 'rose', 'ocean'])
 
@@ -21,6 +22,18 @@ export function loadThemePreference(): ThemeName {
   } catch {
     return DEFAULT_THEME_NAME
   }
+}
+
+/**
+ * 브라우저 또는 운영체제의 현재 색상 모드를 Moodi canonical theme으로 변환한다.
+ * 이 값은 화면 표시용이며 사용자의 저장된 theme preference를 바꾸지 않는다.
+ */
+export function getSystemThemePreference(): ThemeName {
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+    return DEFAULT_THEME_NAME
+  }
+
+  return window.matchMedia(SYSTEM_DARK_COLOR_SCHEME_QUERY).matches ? 'midnight' : 'paper'
 }
 
 /**

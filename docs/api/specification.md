@@ -1,32 +1,83 @@
 # API 명세 - moodi
 
-정확한 API 계약을 이 문서에 기록한다.
+프런트엔드는 browser-facing `VITE_API_BASE_URL`을 사용한다. 로컬에서는 이를 `/`로 두고 `VITE_BACKEND_ORIGIN=http://localhost:8080`을 Vite same-origin proxy target으로 사용한다. 개발 서버와 Playwright의 browser origin은 backend·Google login 허용 목록과 일치하는 `http://localhost:5173`이며, `127.0.0.1` 또는 다른 포트로 접근하지 않는다. 모든 제품 API prefix는 `/api/v1`이며 field는 `camelCase` JSON이다.
 
-## 현재 계약
+## 공통 계약
 
-- 구현되거나 확정된 HTTP endpoint는 없다.
-- Diary CRUD, draft, 목록 교체 계약은 프론트엔드 `DiaryRepository` interface에만 존재하며 현재 구현은 localStorage adapter다.
-- `/ai`는 HTTP API가 아니다. 프론트엔드 `JournalAIService` application contract의 현재 구현인 `LocalJournalAIService`가 브라우저의 잠금 해제된 비-seed Diary entries를 `local-search`로 검색·집계한다.
-- AI 대화 load와 source sanitize는 Diary store `ready` 이후에만 시작한다. 화면은 persistence 결과와 독립적인 동기 sanitizer로 현재 entry를 대조해 수정·삭제·잠금 source의 오래된 답변을 즉시 가린다.
-- AI 대화 persistence는 `JournalAIConversationRepository`와 `moodi.journal-ai.conversations.v1` adapter가 담당한다. contract는 create와 `update(id, updater)`를 분리하고 update를 upsert하지 않으며, 저장 시 최근 message 80개로 먼저 제한한 뒤 검증한다.
-- local query는 감정+keyword 교집합, 한국어 복합 조사·감정 활용형과 제품 직접 예문을 지원한다. 일반 검색은 전체 match와 검색 점수 상위 대표 source 최대 6개, 기간 비교는 기간별 전체 match와 대표 source 최대 3개를 구분한다.
-- assistant response는 최종 저장 성공 뒤에만 확정한다. 실패하면 pending answer를 제거하고 먼저 저장된 user message만 유지한다.
-- 단일 기록 삭제·Diary import 교체·전체 삭제·손상 저장소 복구는 진행 중 AI 요청을 먼저 취소한다. 단일 삭제는 source reference를 제거하고 나머지는 기존 AI 대화를 정리한다.
-- 손상된 AI envelope은 `storage-corrupted` typed error다. 확인된 AI reset은 대화 key만 제거하고 Diary entries/draft를 보존한다.
-- `local-rule-mock`의 반복·동시 발생 pattern은 같은 조합을 실제로 지원하는 과거 기록이 있을 때만 생성하고 움직임의 행복/편안함 label은 실제 선택값을 보존한다. 태그·주제·회고의 반복·자주 표현도 `count >= 2`일 때만 사용하며 단일 값은 중립 문구로 표시한다.
-- 외부 AI, 이미지 업로드, 위치, 날씨, 외부 데이터 연결 endpoint는 계약 미확정이다. `external-ai`는 타입 예약값일 뿐 현재 request DTO, response DTO, auth header 또는 HTTP client가 없다.
+- 성공 응답의 ID는 non-null UUID string, timestamp는 UTC ISO-8601, 날짜는 `YYYY-MM-DD`다.
+- 값이 없는 nullable field는 생략하지 않고 `null`, collection은 `[]`로 응답한다. PATCH의 omitted field는 유지하고 nullable field의 `null`은 제거다.
+- private response는 `Cache-Control: private, no-store`, 모든 response는 `X-Request-Id`를 가진다.
+- 오류는 `application/problem+json` RFC 9457 body다. `type`, `title`, `status`, `detail`, `instance`, `code`, `requestId`는 필수이며 validation 오류만 `errors[].field/code/message`를 가진다.
+- session cookie는 HttpOnly이며 browser는 `credentials: include`를 사용한다. `SessionDto.csrfToken`만 메모리에 보관하고 POST/PUT/PATCH/DELETE에 `X-CSRF-Token`을 보낸다.
+- `Idempotency-Key`는 entry/image/conversation/message POST 및 diary-data PUT에 필요하다. entry/draft 수정·삭제에는 backend가 직전 응답으로 돌려준 `ETag`를 `If-Match`로 보낸다.
+- diary-data PUT/DELETE는 먼저 HEAD를 호출해 받은 `ETag`, `X-Moodi-Data-Confirmation`을 각각 `If-Match`, `X-Data-Confirmation-Token`으로 보낸다.
 
-## 인증 계약
-- 현재 백엔드 인증 API 계약은 없다.
-- 프론트엔드 MVP는 localStorage 기반 mock auth user profile만 사용한다.
-- token, session, refresh token, 만료, 필수 auth header는 아직 정의하지 않는다.
-- 실제 auth API가 확정되면 login/me/logout endpoint, request/response field, 401/403 error case, token/session 동작을 이 문서에 추가한다.
+공통 error code는 `MALFORMED_REQUEST(400)`, `AUTH_REQUIRED|SESSION_EXPIRED(401)`, `CSRF_INVALID|FORBIDDEN(403)`, `RESOURCE_NOT_FOUND(404)`, `IDEMPOTENCY_CONFLICT|AI_RUN_ACTIVE(409)`, `VERSION_CONFLICT(412)`, `PAYLOAD_TOO_LARGE(413)`, `UNSUPPORTED_MEDIA_TYPE(415)`, `VALIDATION_FAILED(422)`, `PRECONDITION_REQUIRED(428)`, `RATE_LIMITED(429)`, `AI_SERVICE_UNAVAILABLE(503)`, `INTERNAL_ERROR(500)`이다.
 
-## 외부 API 매핑
-- upstream 계약이 확인된 경우에만 내부 endpoint와 upstream 호출 관계를 기록한다.
-- 현재 `local-search`는 외부 upstream으로 질문, 일기 원문 또는 대화를 전송하지 않는다.
-- `JournalAIService`는 취소 signal과 `generating | streaming` progress event, `answer | no-results` 결과를 제공한다. error code는 `storage-corrupted | storage-unavailable`과 향후 adapter용 network·auth-expired·service-unavailable·source-load-failed를 구분하지만 현재 local adapter가 임의 endpoint나 외부 오류를 만들지는 않는다.
+## DTO 계약
 
-## Endpoints
+| DTO | 필수 field | nullable / enum 및 제한 |
+| --- | --- | --- |
+| `UserDto` | `id`, `email`, `displayName`, `joinedAt`, `lastLoginAt` | 모두 non-null |
+| `SessionDto` | `user`, `authenticatedAt`, `expiresAt`, `absoluteExpiresAt`, `csrfToken` | 모두 non-null; csrf token은 memory only |
+| `UserSettingsDto` | `fontSize`, `isEntryLockEnabledByDefault`, `isAiAnalysisEnabled`, `aiTone`, `aiResponseLength`, `isPersonalizedQuestionsEnabled`, `updatedAt` | `fontSize=small|medium|large`; tone과 response length는 API enum; 모두 non-null |
+| `DiaryEntryContentWrite` | create 시 `type`, `diaryDate` | `type=journal|quick`; mood 9개, activity 9개, title 최대 80, plain/HTML content 최대 2,500,000, quick note 최대 180, energy 1..5, tag 최대 8, `imageIds` 최대 3, nullable scalar는 `null`로 제거 |
+| `DiaryEntryDto` | write field와 `id`, `createdAt`, `updatedAt`, `aiTopics`, `images`, `isFavorite`, `isLocked`, `aiInsight`, `revision` | response는 title/content/contentHtml/shortNote/mood/energy/weather/location/aiInsight nullable; P0 `aiTopics=[]`, `aiInsight=null` |
+| `DiaryEntrySummaryDto` | `id`, `type`, `title`, `excerpt`, `diaryDate`, `updatedAt`, mood/energy, activities/tags, `coverImage`, favorite/lock, `revision` | 목록에는 full content를 넣지 않음 |
+| `DiaryDraftDto` | write fields, `id`, `entryId`, `savedAt`, `revision` | `entryId` nullable; 사용자당 하나 |
+| `DiaryImageDto` | `id`, `contentUrl`, `alt`, `role`, `createdAt` | `alt` nullable, `role=cover|inline`; JPEG/PNG/WebP, 최대 350 KiB, entry당 3장 |
+| `AIConversationSummaryDto` | `id`, `title`, `createdAt`, `updatedAt` | title 1..80 |
+| `AIMessageDto` | `id`, `role`, `status`, `content`, `createdAt`, `generator`, `sources`, `redactionReason` | role user/assistant, status completed/redacted, completed assistant만 source, redacted content/reason nullability는 status에 따름 |
+| `AIRunDto` | `id`, `conversationId`, `userMessageId`, `assistantMessageId`, `status`, `streamUrl`, `failure`, timestamps | status queued/running/completed/failed/cancelled; failed의 failure는 code/message/retryable/requestId |
 
-현재 없음.
+## 인증과 설정
+
+| Method / URL | Request | Success | 오류 / 부수효과 |
+| --- | --- | --- | --- |
+| POST `/auth/login-attempts` | optional `returnTo`, `purpose=login|reauthenticate` | `201 {attemptId, nonce, expiresAt}` | 401(reauth), 422, 429; Google credential 전 nonce 발급 |
+| POST `/auth/google-credentials` | form `credential`, `g_csrf_token`, `state` | `303` allow-listed returnTo + session cookie | 401 Google credential/attempt, 403 CSRF, 409 consumed attempt, 429 |
+| GET `/auth/session` | 없음 | `200 SessionDto` | 401 auth/session expired |
+| DELETE `/auth/session` | CSRF | `204` | 401, 403; session revoke와 cookie 만료 |
+| DELETE `/users/me` | CSRF + 5분 이내 reauth | `204` | 401, 403; user-owned data 삭제 |
+| GET `/users/me/settings` | 없음 | `200 UserSettingsDto` | 401 |
+| PATCH `/users/me/settings` | 최소 하나의 non-null partial setting | `200 UserSettingsDto` | 401, 403, 422 |
+| DELETE `/users/me/settings` | CSRF | `204` | 401, 403; 다음 GET은 canonical defaults |
+
+## Diary, draft, image
+
+| Method / URL | Request | Success | 오류 / 부수효과 |
+| --- | --- | --- | --- |
+| GET `/diary-entries` | query: `query`, date range, repeated mood/activity/tag/type, favorite/image, sort, cursor, limit 1..100 | `200 {items: DiaryEntrySummaryDto[], nextCursor, hasNext}` | 401, 422; stable pagination |
+| POST `/diary-entries` | CSRF + idempotency + full `DiaryEntryContentWrite` | `201 DiaryEntryDto`, Location, ETag | 401, 403, 409, 413, 422; image attach/dataset revision |
+| GET `/diary-entries/{entryId}` | path id | `200 {entry, relatedEntries, previousEntry, nextEntry}`, ETag | 401, 404 |
+| PATCH `/diary-entries/{entryId}` | CSRF + If-Match + non-empty partial write | `200 DiaryEntryDto`, new ETag | 401, 403, 404, 412, 413, 422, 428; image attach/detach, dataset revision, invalid AI source redaction |
+| DELETE `/diary-entries/{entryId}` | CSRF + If-Match | `204` | 401, 403, 404, 412, 428; child/image relation and AI dependency cleanup |
+| GET `/diary-draft` | 없음 | `200 {draft: DiaryDraftDto|null}`, ETag if draft | 401 |
+| PUT `/diary-draft` | CSRF; existing draft requires If-Match; full write + optional `id`,`entryId` | `201` create or `200` update, Draft + ETag | 401, 403, 412, 413, 422, 428 |
+| DELETE `/diary-draft` | CSRF; existing draft requires If-Match | `204` | 401, 403, 412, 428; absent draft is idempotent |
+| POST `/diary-images` | CSRF + idempotency + multipart `file`, `role`, optional `alt` | `201 DiaryImageDto`, Location | 401, 403, 409, 413, 415, 422; pending image |
+| GET `/diary-images/{imageId}/content` | path id | binary content with nosniff/private cache | 401, 404 |
+| DELETE `/diary-images/{imageId}` | CSRF | `204` | 401, 403, 404, 409 image-in-use |
+
+## AI conversation과 run
+
+| Method / URL | Request | Success | 오류 / 부수효과 |
+| --- | --- | --- | --- |
+| GET/POST `/ai-conversations` | GET cursor/limit; POST CSRF+idempotency optional title | `200 page` / `201 summary` | 401, POST 403/409/422 |
+| GET/PATCH/DELETE `/ai-conversations/{conversationId}` | PATCH CSRF `{title}`; DELETE CSRF | `200 summary` / `204` | 401, 403, 404, PATCH 409 active run, 422 |
+| GET `/ai-conversations/{conversationId}/messages` | cursor/limit | `200 {items: AIMessageDto[],nextCursor,hasNext}` | 401,404,422; source is revalidated/read-redacted |
+| POST `/ai-conversations/{conversationId}/messages` | CSRF+idempotency `{content: 1..1200, timeZone: IANA}` | `202 {userMessage, run}` | 401,403,404,409,422,429,503; one active run per conversation |
+| GET `/ai-runs/{runId}` | 없음 | `200 {run, message}` | 401,404 |
+| GET `/ai-runs/{runId}/events` | `Accept: text/event-stream`, optional Last-Event-ID/after | SSE `run.started`, `message.delta`, terminal `run.completed|run.failed|run.cancelled` | stream-open 401,404,429; EventSource error는 run 조회 후 복구 |
+| PUT `/ai-runs/{runId}/cancellation` | CSRF | `200 AIRunDto` | 401,403,404; terminal run은 현재 상태 반환 |
+
+## Export, import, health
+
+| Method / URL | Request | Success | 오류 / 부수효과 |
+| --- | --- | --- | --- |
+| HEAD `/diary-data` | 없음 | `200` headers ETag, entry count, confirmation token | 401 |
+| GET `/diary-data` | 없음 | `200` streaming `moodi-diary-export` v2 JSON attachment | 401, 500; identity/session/AI run 제외 |
+| PUT `/diary-data` | CSRF + idempotency + dataset If-Match + confirmation token; v1/v2 export envelope | `200 {importedEntryCount, clearedDraft, clearedConversationCount, completedAt}` | 401,403,409,412,413,415,422,428; validation 후 atomic replace |
+| DELETE `/diary-data` | CSRF + dataset If-Match + confirmation token | `204` | 401,403,412,428; Diary/draft/image/conversation/run 삭제, settings/session은 유지 |
+| GET `/health/live` | internal/proxy route | `200 {status:"UP"}` | process down이면 connection/5xx |
+| GET `/health/ready` | internal/proxy route | `200 {status:"UP"}` or `503 {status:"DOWN"}` | DB/session store readiness만 확인 |

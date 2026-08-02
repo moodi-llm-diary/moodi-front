@@ -1,7 +1,7 @@
 import type { Mood } from './diaryDomain'
 
 /** 채팅 답변을 만든 구현체를 UI에서 정직하게 구분한다. */
-export type JournalAIAdapterKind = 'local-search' | 'external-ai'
+export type JournalAIAdapterKind = 'local-search' | 'backend-ai' | 'external-ai'
 
 export type JournalAIMessageRole = 'user' | 'assistant'
 
@@ -15,6 +15,7 @@ export type JournalAIErrorCode =
   | 'unknown'
 
 export type JournalAIProgressEvent =
+  | { type: 'run-started'; runId: string }
   | { type: 'generating' }
   | { type: 'streaming'; content: string }
 
@@ -35,6 +36,8 @@ export interface JournalAIMessage {
   createdAt: string
   adapter: JournalAIAdapterKind
   sources: JournalSource[]
+  status?: 'completed' | 'redacted'
+  redactionReason?: 'source-updated' | 'source-unavailable'
 }
 
 export interface AIConversation {
@@ -65,7 +68,7 @@ export interface JournalAIService {
   getConversations(): Promise<AIConversation[]>
   getConversation(id: string): Promise<AIConversation | null>
   sendMessage(input: SendAIMessageInput): Promise<AIMessageResponse>
-  cancelMessage?(requestId: string): Promise<void>
+  cancelMessage?(runId: string): Promise<void>
   deleteConversation(id: string): Promise<void>
   renameConversation(id: string, title: string): Promise<AIConversation>
   resetConversationStorage(): Promise<void>

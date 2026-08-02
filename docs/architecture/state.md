@@ -2,10 +2,12 @@
 
 ## 상태 소유권
 
+2026-07 backend integration 이후 Diary/draft/AI/settings의 canonical persisted state는 localStorage가 아니라 backend다. Zustand와 hook state는 화면 cache와 in-flight 상태만 소유한다. theme·Sidebar는 device-local UI preference로 남는다.
+
 | State | Owner | Source of truth | Persisted | 설명 |
 | --- | --- | --- | --- | --- |
-| Diary entries | `diaryStore` + `DiaryRepository` | canonical `DiaryEntry[]` | Yes, `moodi.diary.entries.v2` | 긴 일기와 빠른 기록의 단일 목록 |
-| Active draft | `diaryStore` + `DiaryRepository` | `DiaryDraft` 또는 `null` | Yes, `moodi.diary.draft.v1` | 한 번에 하나의 활성 draft |
+| Diary entries | `diaryStore` + `ApiDiaryRepository` | backend `DiaryEntryDto` → `DiaryEntry[]` | Yes, backend | 긴 일기와 빠른 기록의 client cache |
+| Active draft | `diaryStore` + `ApiDiaryRepository` | backend `DiaryDraftDto` → `DiaryDraft|null` | Yes, backend | 한 번에 하나의 활성 draft |
 | Store status | `diaryStore` | Zustand | No | 최초 load 상태 |
 | Mutation status | `diaryStore` | Zustand | No | save/delete/import/clear 진행 상태 |
 | Store error | `diaryStore` | Zustand | No | Repository/application 오류의 UI-safe message |
@@ -21,20 +23,29 @@
 | Today key | `useDiaryWorkspace` | React state | No | local 자정 직후 갱신되는 오늘 날짜 기준 |
 | Prompt state | `useDiaryWorkspace` | React state | No | 현재 prompt index |
 | AI insight collapse | `useDiaryWorkspace` | React state | No | 펼친 상세 분석 entry id; 다른 entry로 이동하면 기본 닫힘 |
-| AI conversations | `useJournalAIChat` + `JournalAIConversationRepository` | canonical `AIConversation[]` | Yes, `moodi.journal-ai.conversations.v1` | local-search message와 실제 기록 source snapshot |
-| AI chat UI | `useJournalAIChat` | React state | No | active conversation id, phase, error/status, suggested questions, in-flight AbortController |
+| AI conversations | `useJournalAIChat` + `ApiJournalAIService` | backend conversation/message DTO → `AIConversation[]` | Yes, backend | server-run message와 실제 기록 source snapshot |
+| AI chat UI | `useJournalAIChat` | React state | No | active conversation id, phase, SSE partial content, active run id, error/status, AbortController |
 | Mobile drawer | `MobileNavigation` | React state | No | App Bar 또는 `나`에서 열고, 열린 동안 body scroll lock과 focus trap 적용 |
 | Mobile visual viewport | `AppShell` | `window.visualViewport`에서 파생 | No | viewport height·keyboard inset CSS 변수와 keyboard-open class; 120px 초과 inset에서 하단 nav 숨김 |
 | Confirmation | `useDiaryWorkspace` | React state | No | entry/edit/all/import/new/recover pending action |
 | Toast | `useDiaryWorkspace` | React state | No | message와 tone |
 | Selected tag index | `useDiaryWorkspace` | React state | No | category/value와 matching entries 기준 |
-| Settings preference | `settingsStore` | Zustand initialized from service | Yes, `moodi.settings.preferences.v1` | font, lock, AI preference |
-| Theme preference | `themeStore` | Zustand initialized from service | Yes, `moodi.mvp.theme.v1` | `paper | midnight`; `html`과 theme root wrapper의 semantic token set |
+| Settings preference | `settingsStore` | Zustand initialized from settings API | Yes, backend | font, lock, AI preference |
+| Theme preference | `themeStore` | Zustand initialized from service | Yes, `moodi.mvp.theme.v1` | `paper | midnight`; 로그인·회원가입 화면에서는 저장값 대신 system color scheme을 일시 적용하고, `html`과 theme root wrapper의 semantic token set을 갱신 |
 | Sidebar preference | `useSidebarPreference` + service | React state initialized from localStorage | Yes, `moodi.ui.sidebar-collapsed.v1` | desktop Sidebar의 264/232px 펼침 또는 72px 접힘 상태 |
-| Auth profile | `authStore` | Zustand initialized from mock service | Yes, `moodi.mvp.auth.user.v1` | token 없는 mock user profile |
-| App auth screen | `App` | React state | No | diary/login/myPage 전환 |
+| Auth profile | `authStore` | session API `UserDto` | HttpOnly cookie | Google credential과 session 원문은 JS/localStorage에 없음 |
+| App auth screen | `App` | React state | No | diary/login/signup/myPage 전환 |
 
 ## Domain enum과 상수
+
+### AuthIntent
+
+| Value | 의미 |
+| --- | --- |
+| `login` | 기존 Moodi 자체 계정에 Google 계정으로 진입하려는 의도 |
+| `signup` | Google 계정으로 Moodi 자체 계정을 만들려는 의도 |
+
+로그인과 회원가입은 같은 Google provider 흐름을 공유한다. 현재 Google client ID·callback·백엔드 session 계약이 없어 `authGoogleService`는 typed 미구현 오류만 반환하며, 실패한 시도는 local profile을 만들지 않는다.
 
 ### Mood
 
@@ -84,8 +95,9 @@ Mood는 domain에서 영어 canonical value를 사용하고 한국어 label, ico
 
 | Value | 현재 사용 | 의미 |
 | --- | --- | --- |
-| `local-search` | Yes | 현재 브라우저의 검색 가능한 사용자 기록만 규칙 기반으로 검색·집계 |
-| `external-ai` | No | 향후 계약된 대화 adapter 결과를 구분하기 위한 예약값 |
+| `backend-ai` | Yes | backend conversation/run/SSE가 만든 assistant message |
+| `local-search` | No | 이전 localStorage 대화 데이터 호환값 |
+| `external-ai` | No | 이전 storage 호환을 위한 예약값 |
 
 ### DiaryImageRole
 
@@ -254,6 +266,7 @@ AI 분석을 끄면 SettingsPage의 tone/length/personalized question control은
 | Settings | preference action 성공 | next preference | localStorage persist 후 Zustand update |
 | Settings | preference action 실패 | previous preference | persistenceError와 error toast |
 | Theme preference | `paper | midnight` 선택 | next theme | `moodi.mvp.theme.v1` 저장 후 `html`과 theme root wrapper attribute 갱신 |
+| Authentication screen color scheme | 로그인·회원가입 화면 표시 중 browser/OS color scheme 변경 | `paper | midnight` | `prefers-color-scheme`을 즉시 반영하며 `moodi.mvp.theme.v1`은 변경하지 않음 |
 | Legacy theme preference | app initialize | `paper` | `forest | rose | ocean`을 사용자 데이터 삭제 없이 neutral light로 정규화 |
 | Desktop Sidebar | 접기/펼치기 | 72px 또는 264/232px | `moodi.ui.sidebar-collapsed.v1`에 문자열 boolean 저장; 접근 실패는 UI 동작을 막지 않음 |
 | Mobile App Bar/나 tab | drawer open | modal drawer | body scroll lock, 첫 control focus, Tab loop |

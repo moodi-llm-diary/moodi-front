@@ -6,19 +6,11 @@ export type AuthUser = {
   lastLoginAt: string
 }
 
-export type LoginFormState = {
-  email: string
-  password: string
-}
+export type AuthIntent = 'login' | 'signup'
 
-export type AuthValidationResult =
-  | {
-      isValid: true
-    }
-  | {
-      isValid: false
-      message: string
-    }
+export type GoogleAuthenticationRequest = {
+  intent: AuthIntent
+}
 
 export type MyPageViewModel = {
   displayName: string

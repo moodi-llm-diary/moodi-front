@@ -33,7 +33,6 @@ type DiaryMvpPageProps = {
   authUserLabel?: string
   onOpenLogin: () => void
   onOpenMyPage: () => void
-  onResetProfileAndPreferences: () => boolean
   onSelectTheme: (themeName: ThemeName) => boolean
   themeOptions: ThemeOption[]
 }
@@ -44,11 +43,10 @@ export function DiaryMvpPage({
   authUserLabel,
   onOpenLogin,
   onOpenMyPage,
-  onResetProfileAndPreferences,
   onSelectTheme,
   themeOptions,
 }: DiaryMvpPageProps) {
-  const workspace = useDiaryWorkspace({ onResetProfileAndPreferences })
+  const workspace = useDiaryWorkspace()
   const profileAction = authUserLabel ? onOpenMyPage : onOpenLogin
   const confirmationCopy = getConfirmationCopy(workspace.confirmation)
 

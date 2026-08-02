@@ -1,9 +1,9 @@
 import { create } from 'zustand'
 import {
-  clearSettingsPreferences,
-  loadSettingsPreferences,
-  persistSettingsPreferences,
-} from '../services/settingsPreferenceService'
+  getSettingsPreferencesFromApi,
+  resetSettingsPreferencesInApi,
+  updateSettingsPreferencesInApi,
+} from '../services/settingsApiService'
 import {
   DEFAULT_SETTINGS_PREFERENCES,
   type AiResponseLengthPreference,
@@ -15,41 +15,52 @@ import {
 export type SettingsStoreState = {
   preferences: SettingsPreferences
   persistenceError: string | null
-  setFontSize: (fontSize: FontSizePreference) => boolean
-  setEntryLockEnabledByDefault: (isEnabled: boolean) => boolean
-  setAiAnalysisEnabled: (isEnabled: boolean) => boolean
-  setAiTone: (aiTone: AiTonePreference) => boolean
-  setAiResponseLength: (responseLength: AiResponseLengthPreference) => boolean
-  setPersonalizedQuestionsEnabled: (isEnabled: boolean) => boolean
-  resetPreferences: () => boolean
+  status: 'idle' | 'loading' | 'ready' | 'error'
+  initialize: () => Promise<void>
+  setFontSize: (fontSize: FontSizePreference) => Promise<boolean>
+  setEntryLockEnabledByDefault: (isEnabled: boolean) => Promise<boolean>
+  setAiAnalysisEnabled: (isEnabled: boolean) => Promise<boolean>
+  setAiTone: (aiTone: AiTonePreference) => Promise<boolean>
+  setAiResponseLength: (responseLength: AiResponseLengthPreference) => Promise<boolean>
+  setPersonalizedQuestionsEnabled: (isEnabled: boolean) => Promise<boolean>
+  resetPreferences: () => Promise<boolean>
   clearPersistenceError: () => void
 }
 
 /**
  * 설정 preference의 source of truth와 localStorage 저장 action을 제공한다.
  */
-export const useSettingsStore = create<SettingsStoreState>((set, get) => {
-  const updatePreferences = (patch: Partial<SettingsPreferences>): boolean => {
-    const nextPreferences: SettingsPreferences = {
-      ...get().preferences,
-      ...patch,
-    }
-
+export const useSettingsStore = create<SettingsStoreState>((set) => {
+  const updatePreferences = async (patch: Partial<SettingsPreferences>): Promise<boolean> => {
     try {
-      persistSettingsPreferences(nextPreferences)
-      set({ preferences: nextPreferences, persistenceError: null })
+      const preferences = await updateSettingsPreferencesInApi(patch)
+      set({ preferences, persistenceError: null, status: 'ready' })
 
       return true
     } catch {
-      set({ persistenceError: '브라우저에 설정을 저장하지 못했어요.' })
+      set({ persistenceError: '서버에 설정을 저장하지 못했어요.' })
 
       return false
     }
   }
 
   return {
-    preferences: loadSettingsPreferences(),
+    preferences: { ...DEFAULT_SETTINGS_PREFERENCES },
     persistenceError: null,
+    status: 'idle',
+    initialize: async () => {
+      set({ status: 'loading', persistenceError: null })
+
+      try {
+        const preferences = await getSettingsPreferencesFromApi()
+        set({ preferences, status: 'ready', persistenceError: null })
+      } catch {
+        set({
+          status: 'error',
+          persistenceError: '서버에서 설정을 불러오지 못했어요.',
+        })
+      }
+    },
     setFontSize: (fontSize) => updatePreferences({ fontSize }),
     setEntryLockEnabledByDefault: (isEntryLockEnabledByDefault) =>
       updatePreferences({ isEntryLockEnabledByDefault }),
@@ -60,21 +71,19 @@ export const useSettingsStore = create<SettingsStoreState>((set, get) => {
       updatePreferences({ aiResponseLength }),
     setPersonalizedQuestionsEnabled: (isPersonalizedQuestionsEnabled) =>
       updatePreferences({ isPersonalizedQuestionsEnabled }),
-    resetPreferences: () => {
-      let didClear = true
-
+    resetPreferences: async () => {
       try {
-        clearSettingsPreferences()
+        await resetSettingsPreferencesInApi()
+        set({
+          preferences: { ...DEFAULT_SETTINGS_PREFERENCES },
+          persistenceError: null,
+          status: 'ready',
+        })
+        return true
       } catch {
-        didClear = false
+        set({ persistenceError: '서버에서 저장된 설정을 초기화하지 못했어요.' })
+        return false
       }
-
-      set({
-        preferences: { ...DEFAULT_SETTINGS_PREFERENCES },
-        persistenceError: didClear ? null : '브라우저에서 저장된 설정을 삭제하지 못했어요.',
-      })
-
-      return didClear
     },
     clearPersistenceError: () => set({ persistenceError: null }),
   }

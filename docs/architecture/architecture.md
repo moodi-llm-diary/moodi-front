@@ -2,7 +2,7 @@
 
 ## 요약
 
-Moodi는 사용자의 긴 일기와 빠른 기록을 브라우저에 보관하고, 감정·활동·태그·과거 기록을 연결해 보여주는 React 기반 개인 기억 일기장이다. 현재 프론트엔드는 실제 백엔드 API 없이 versioned localStorage Repository, 명시적인 `local-rule-mock` 기록 분석, `/ai`의 `local-search` 기록 탐색 adapter로 동작한다.
+Moodi는 긴 일기와 빠른 기록을 backend의 인증된 사용자 데이터로 저장하고, AI 대화와 실제 기록 출처를 연결해 보여주는 React 기반 개인 기억 일기장이다. 프런트엔드는 `VITE_API_BASE_URL`의 REST/SSE backend adapter를 사용하며, localStorage는 theme·Sidebar 같은 device-local UI preference와 이전 데이터 호환용 adapter 테스트에만 남긴다.
 
 ## 런타임과 시스템 경계
 
@@ -10,10 +10,11 @@ Moodi는 사용자의 긴 일기와 빠른 기록을 브라우저에 보관하�
 - Typography: npm package로 번들되는 Pretendard Variable dynamic subset과 시스템 sans-serif fallback
 - 전역 client state: Zustand
 - 라우팅: 별도 라우터 패키지 없이 History API와 `popstate`
-- 저장소: Diary와 AI 대화를 각각 소유하는 versioned localStorage Repository
-- 분석: 저장 시점의 `local-rule-mock` 분석과 대화형 `local-search` 기록 탐색 service
-- 인증: 기존 localStorage 기반 mock profile이며 token, session, role, permission은 구현하지 않는다.
-- 외부 API와 데이터베이스: 계약 미확정. 실제 HTTP 호출이나 DB 접근은 없다.
+- 저장소: `ApiDiaryRepository`가 Diary/draft/data transfer REST resource를 소유하고 backend가 persistence를 소유한다.
+- 분석: P0 entry 저장은 backend `DiaryEntryDto`의 `aiTopics=[]`, `aiInsight=null`을 그대로 사용한다. 구조화 insight는 P1 계약 전 생성하지 않는다.
+- AI: `ApiJournalAIService`가 conversation/message/run resource와 SSE를 사용한다.
+- 인증: Google Identity Services credential은 backend에서 검증하고, browser는 HttpOnly session cookie와 메모리 전용 CSRF token만 사용한다.
+- 외부 API와 데이터베이스: frontend가 직접 DB에 접근하지 않는다. backend API의 실제 contract는 `docs/api`에 기록한다.
 
 ## 공개 화면 경로
 
@@ -30,7 +31,7 @@ Moodi는 사용자의 긴 일기와 빠른 기록을 브라우저에 보관하�
 | `/tags` | `tags` | 태그와 주제 | 설정의 `태그와 주제` 항목에서 진입; 사용자 태그, 활동, 감정, Moodi 주제 분리 |
 | `/settings` | `settings` | 설정 | 테마, 글꼴, 잠금, AI preference, 데이터 관리 |
 
-`useDiaryRoute`가 URL을 `DiaryLocation`으로 파싱하고 `pushState` 또는 `replaceState`로 이동한다. 브라우저 뒤로/앞으로는 `popstate`로 동기화한다. 알 수 없는 경로는 `/`로 교체한다. Login/MyPage는 별도 공개 URL을 추가하지 않고 같은 URL의 `moodiAppRoute` History state overlay로 열어 Back 동작과 React 화면을 동기화한다.
+`useDiaryRoute`가 URL을 `DiaryLocation`으로 파싱하고 `pushState` 또는 `replaceState`로 이동한다. 브라우저 뒤로/앞으로는 `popstate`로 동기화한다. 알 수 없는 경로는 `/`로 교체한다. Login/Signup/MyPage는 별도 공개 URL을 추가하지 않고 같은 URL의 `moodiAppRoute` History state overlay로 열어 Back 동작과 React 화면을 동기화한다.
 
 ## 계층과 의존성 방향
 
@@ -40,22 +41,21 @@ App
     -> View / feature component                  표시와 사용자 intent 전달
       -> useDiaryWorkspace / feature hook        화면 유스케이스와 상태 전이
         -> diaryStore / settingsStore            client application state
-          -> DiaryRepository / preference service
-            -> LocalStorageDiaryRepository       persistence adapter
+          -> DiaryRepository / settings API service
+            -> ApiDiaryRepository / HTTP client  backend adapter
 
 useDiaryWorkspace -> diaryQueryService           순수 조회·집계·view model 계산
 diaryStore        -> DiaryAnalysisService         분석 application 경계
-useJournalAIChat  -> JournalAIService             대화형 기록 탐색 application 경계
-                  -> JournalAIConversationRepository
-                    -> LocalStorageJournalAIConversationRepository
+useJournalAIChat  -> ApiJournalAIService          conversation/run/SSE application 경계
+                  -> HTTP client -> backend API
 ```
 
 - `pages`는 route별 화면, AppShell, dialog, toast를 조립한다.
 - `components/views`는 화면 표시와 이벤트 전달을 담당한다.
 - `hooks`는 route, editor, quick check-in, filter, confirmation 같은 UI 유스케이스를 조합한다.
 - `stores`는 비동기 mutation 상태와 Repository 호출 순서를 소유한다.
-- `repositories`는 persistence entity의 검증·정규화·migration과 CRUD를 담당한다.
-- `services`는 분석, 조회/집계, import/export 같은 독립 application 기능을 담당한다.
+- `repositories`는 backend DTO를 domain model로 변환하고 ETag, idempotency, confirmation header를 adapter 내부에 둔다.
+- `services`는 image multipart upload, AI run SSE, 조회/집계, transfer 같은 독립 application 기능을 담당한다.
 - `types/diaryDomain.ts`, `diaryInputs.ts`, `diaryViewModels.ts`는 domain model, application input, UI view model을 분리한다.
 - UI component는 localStorage, Blob/File parsing, 외부 API를 직접 호출하지 않는다.
 
@@ -98,20 +98,14 @@ useJournalAIChat  -> JournalAIService             대화형 기록 탐색 applic
 - Repository contract: 비동기 `DiaryRepository`; 향후 API adapter도 같은 CRUD/draft contract를 구현한다.
 - 블록 문서: `contentHtml`은 TipTap이 생성한 문서 구조·서식·인라인 이미지 블록을 보존하고, `content`는 검색·분석·legacy 호환용 평문을 보존한다. 둘은 같은 사용자 원문의 서로 다른 표현이며 UI view model이나 persistence entity로 혼용하지 않는다.
 
-### localStorage 계약
+### Backend persistence와 device-local preference
 
 | Key | Version | 내용 |
 | --- | --- | --- |
-| `moodi.diary.entries.v2` | envelope `schemaVersion: 2` | canonical `DiaryEntry[]` |
-| `moodi.mvp.diary.entries.v1` | legacy | 구 MVP의 한국어 mood와 `date/body` 데이터; migration 입력 전용 |
-| `moodi.diary.draft.v1` | envelope `schemaVersion: 1` | 단일 활성 `DiaryDraft` |
-| `moodi.journal-ai.conversations.v1` | envelope `schemaVersion: 1` | 로컬 검색 대화 최대 40개와 대화별 최근 message 최대 80개 |
-| `moodi.settings.preferences.v1` | envelope `version: 1` | Settings preference |
 | `moodi.mvp.theme.v1` | 기존 preference | canonical `paper | midnight` theme name |
-| `moodi.mvp.auth.user.v1` | 기존 mock | 비밀정보가 없는 mock 사용자 profile |
 | `moodi.ui.sidebar-collapsed.v1` | UI preference | desktop Sidebar 접기 여부를 문자열 boolean으로 저장 |
 
-초기화 규칙은 다음과 같다.
+Diary/draft/AI/settings의 canonical persistence는 backend다. 프런트는 session cookie를 localStorage에 복제하지 않으며, `/api/v1/auth/session`의 csrfToken만 메모리에 둔다. 아래 legacy key 규칙은 이전 local export를 backend import v1으로 옮길 수 있게 하는 historical compatibility 범위다.
 
 1. v2 key가 있으면 schema와 모든 필드를 검증·정규화해 읽는다.
 2. v2가 없고 legacy v1이 있으면 canonical v2로 비파괴 migration하고 v2를 저장한다.
@@ -176,7 +170,7 @@ Legacy migration은 기존 id와 timestamp를 가능한 한 유지하고 한국�
 - 내보내기는 `moodi-diary-export` version 1 envelope을 JSON Blob으로 만든다.
 - 가져오기는 JSON, 최대 12MB, format/version, entry 최소 계약을 검증하고 draft 삭제를 알리는 확인 dialog를 거쳐 전체 목록을 교체한다.
 - 기록 하나 삭제, import 교체, 전체 삭제는 공통 접근성 ConfirmDialog를 거친다. 확정된 단일 삭제·import·전체 삭제·손상 저장소 복구는 진행 중 AI 검색에 먼저 취소 signal을 보내며, 단일 삭제는 저장된 AI source reference를 제거하고 나머지는 기존 AI 대화를 비운다.
-- 전체 삭제는 draft/legacy snapshot을 잡고 해당 key를 먼저 제거한 뒤 v2 빈 배열을 마지막에 저장한다. Diary 단계가 실패하면 snapshot을 복원하며, 이후 mock profile/theme/Settings/Sidebar preference 제거가 일부 실패하면 Diary 삭제 성공을 유지하되 오류 toast로 남은 preference를 알린다. 별도로 내보낸 파일은 브라우저 밖의 사용자 파일이므로 삭제하지 않는다.
+- 전체 삭제는 draft/legacy snapshot을 잡고 해당 key를 먼저 제거한 뒤 v2 빈 배열을 마지막에 저장한다. Diary 단계가 실패하면 snapshot을 복원하며, 이후 auth profile/theme/Settings/Sidebar preference 제거가 일부 실패하면 Diary 삭제 성공을 유지하되 오류 toast로 남은 preference를 알린다. 별도로 내보낸 파일은 브라우저 밖의 사용자 파일이므로 삭제하지 않는다.
 
 ## Settings 경계
 
@@ -188,18 +182,24 @@ Legacy migration은 기존 id와 timestamp를 가능한 한 유지하고 한국�
 - 이 toggle은 entry 저장 시 `AIInsight` 생성만 제어한다. 외부 호출이 없는 `/ai` local-search route와 대화 저장 여부는 현재 별도 경계다.
 - `aiTone`, `aiResponseLength`: 새로 저장하거나 수정하는 기록의 local rule 요약 말투와 topic/pattern/question 개수에 반영한다.
 - `isPersonalizedQuestionsEnabled`: 켜면 기존 분석의 후속 질문을 우선 사용하고, 끄거나 분석 질문이 없으면 일반 질문 목록을 사용한다.
-- 테마는 기존 Theme feature의 `ThemeSelector`, theme store, theme preference service를 재사용하되 선택지는 중립 라이트 `paper`와 중립 다크 `midnight` 두 가지다. `App`은 선택값을 `html`과 theme root wrapper에 함께 반영하고 `--color-canvas`를 브라우저 `theme-color` meta와 동기화한다. 저장 action은 boolean 결과를 반환해 Settings에서 성공/오류 toast로 매핑한다.
-- Settings의 `계정` 행은 기존 mock Login/MyPage overlay를 여는 명시적 profile 진입점이다.
+- 테마는 기존 Theme feature의 `ThemeSelector`, theme store, theme preference service를 재사용하되 선택지는 중립 라이트 `paper`와 중립 다크 `midnight` 두 가지다. `App`은 선택값을 `html`과 theme root wrapper에 함께 반영하고 `--color-canvas`를 브라우저 `theme-color` meta와 동기화한다. 저장 action은 boolean 결과를 반환해 Settings에서 성공/오류 toast로 매핑한다. 단, LoginPage와 SignupPage는 selector를 표시하지 않고 `prefers-color-scheme`을 구독해 browser/OS의 현재 light/dark 모드를 일시 적용하며, 이 과정은 저장 preference를 변경하지 않는다.
+- Settings의 `계정` 행은 Google 기반 Login/Signup/MyPage overlay를 여는 명시적 profile 진입점이다. 로그인하지 않은 사용자는 Login에서 Signup으로 전환할 수 있다.
 - 외부 사진, 일정, 음악, 날씨, 프로젝트, GitHub 카드는 모두 `미연결`이며 동의 안내와 disabled button만 제공한다.
 - 개인정보 처리 안내는 현재 저장 위치, 처리 목적, 외부 전송 여부, 보존·삭제 범위를 Settings에 명시한다.
 
+## Google 인증 경계
+
+- `GoogleAuthPage`는 로그인과 회원가입을 같은 Google 계정 흐름의 서로 다른 user intent로 표시한다. 이메일·비밀번호 입력이나 자체 비밀번호 저장은 제공하지 않는다.
+- LoginPage와 SignupPage에는 돌아가기 button과 theme selector를 렌더링하지 않는다.
+- 권장 흐름은 `GoogleAuthPage -> useGoogleAuthPage -> authStore -> authGoogleService`다. 화면과 hook은 Google SDK, credential, cookie/session을 직접 다루지 않는다.
+- 현재 `authGoogleService`는 Google client ID, callback, backend session endpoint 계약이 없어 명시적 typed error를 반환하는 TODO 경계만 제공한다. 연동 전에는 local profile을 성공 생성하지 않는다.
+- 계약이 확정되면 Google ID token을 서버에서 검증하고, 브라우저에는 안전한 표시용 `AuthUser`만 전달하는 adapter로 구현한다. Google access/refresh token과 Moodi session 원문은 localStorage, URL, 로그에 남기지 않는다.
+
 ## AI와 외부 연동 경계
 
-- 저장 시 분석은 `LocalRuleBasedDiaryAnalysisService`, `/ai` 대화는 `LocalJournalAIService`만 동작한다.
-- 기록 분석의 `source`는 `local-rule-mock`, 대화 message의 `adapter`는 `local-search`이며 둘 다 사용자 원문과 별도 UI로 표시한다.
-- `JournalAIService`는 대화 CRUD·전송·취소 경계이고 현재 구현은 localStorage 대화 Repository와 현재 browser entries만 사용한다. endpoint, request DTO, 인증 header 또는 network retry를 가장하지 않는다.
-- `external-ai` 값은 향후 계약된 adapter 결과를 구분하기 위한 타입 예약값이며 현재 생성하지 않는다.
-- 실제 AI 전환에는 endpoint, request/response field, auth, consent, timeout, retry, cancellation, rate limit, error mapping 계약이 필요하다.
+- `ApiJournalAIService`는 conversation/message/run REST resource와 SSE를 사용한다. user message는 durable `202` 응답 뒤 run event로 완료되며, cancellation은 `PUT /ai-runs/{id}/cancellation`을 요청한다.
+- assistant 응답과 source는 backend `AIMessageDto`를 domain contract로 변환한 뒤 UI에 전달한다. redacted message는 원문 대신 안전한 안내로 표시한다.
+- frontend는 local-search 또는 외부 모델을 직접 호출하지 않는다. `external-ai`는 이전 storage 호환용 예약값이다.
 - 외부 context 카드도 OAuth/SDK scope와 동의 계약이 없으므로 실제 연결하지 않는다.
 - Moodi 분석은 의료 상담이나 정신 건강 진단으로 표현하지 않는다.
 

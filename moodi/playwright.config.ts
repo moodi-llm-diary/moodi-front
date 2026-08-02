@@ -12,7 +12,7 @@ export default defineConfig({
   ],
   outputDir: 'artifacts/test-results',
   use: {
-    baseURL: 'http://127.0.0.1:3000',
+    baseURL: 'http://localhost:5173',
     colorScheme: 'light',
     locale: 'ko-KR',
     screenshot: 'only-on-failure',
@@ -20,7 +20,7 @@ export default defineConfig({
   },
   webServer: {
     command: 'npm run dev',
-    url: 'http://127.0.0.1:3000',
+    url: 'http://localhost:5173',
     reuseExistingServer: true,
     timeout: 120_000,
   },
