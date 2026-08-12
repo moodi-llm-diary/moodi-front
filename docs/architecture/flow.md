@@ -4,7 +4,7 @@
 
 이 절은 2026-07 backend integration 이후의 현재 구현이다. 아래에 남아 있는 localStorage/local-search 서술은 이전 MVP 흐름 기록이며, 현재 동작과 충돌하면 이 절과 `docs/api/specification.md`가 우선한다.
 
-1. Vercel 배포에서는 browser가 `/api/*`만 호출하고 `api/[...path].ts`가 server-only `MOODI_BACKEND_ORIGIN`으로 요청을 전달한다. 요청 cookie와 `Set-Cookie`, SSE·ETag·Location header를 proxy가 유지해 GIS double-submit과 host-only session cookie가 browser origin에서 일관되게 동작한다.
+1. Vercel 배포에서는 browser가 `/api/*`만 호출하고 `vercel.json` external rewrite가 `https://api.moodi.kro.kr`로 요청을 전달한다. 요청 cookie와 `Set-Cookie`, SSE·ETag·Location header를 reverse proxy가 유지해 GIS double-submit과 host-only session cookie가 browser origin에서 일관되게 동작한다.
 2. 앱은 `GET /api/v1/auth/session`으로 HttpOnly session을 확인하고 `csrfToken`을 메모리에만 둔다. session이 없으면 Diary 화면을 mount하지 않고 Google 로그인 화면을 표시한다.
 3. 로그인 성공은 `POST /auth/login-attempts` → Google Identity Services credential → form `POST /auth/google-credentials` → session 재조회 순서다. credential/token은 React state·URL·localStorage에 저장하지 않는다.
 4. `diaryStore.initialize`는 `ApiDiaryRepository.getEntries`와 `getDraft`를 호출한다. 목록 page는 detail DTO로 보완해 domain cache로 변환하며, UI가 backend DTO를 직접 사용하지 않는다.

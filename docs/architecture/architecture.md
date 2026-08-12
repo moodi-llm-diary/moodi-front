@@ -10,7 +10,7 @@ Moodi는 긴 일기와 빠른 기록을 backend의 인증된 사용자 데이터
 - Typography: npm package로 번들되는 Pretendard Variable dynamic subset과 시스템 sans-serif fallback
 - 전역 client state: Zustand
 - 라우팅: 별도 라우터 패키지 없이 History API와 `popstate`
-- 저장소: `ApiDiaryRepository`가 Diary/draft/data transfer REST resource를 소유하고 backend가 persistence를 소유한다. Vercel 배포에서는 `api/[...path].ts`가 browser-facing same-origin proxy로 동작한다.
+- 저장소: `ApiDiaryRepository`가 Diary/draft/data transfer REST resource를 소유하고 backend가 persistence를 소유한다. Vercel 배포에서는 `vercel.json` external rewrite가 browser-facing same-origin proxy로 동작한다.
 - 분석: P0 entry 저장은 backend `DiaryEntryDto`의 `aiTopics=[]`, `aiInsight=null`을 그대로 사용한다. 구조화 insight는 P1 계약 전 생성하지 않는다.
 - AI: `ApiJournalAIService`가 conversation/message/run resource와 SSE를 사용한다.
 - 인증: Google Identity Services credential은 backend에서 검증하고, browser는 HttpOnly session cookie와 메모리 전용 CSRF token만 사용한다.

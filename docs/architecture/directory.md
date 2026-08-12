@@ -20,7 +20,8 @@
 | Path | 책임 |
 | --- | --- |
 | `moodi/.env.example` | `VITE_API_BASE_URL`과 Google client ID 환경변수의 공개 예시 |
-| `moodi/api/[...path].ts` | Vercel server-only same-origin API proxy; backend origin, request cookie, response Set-Cookie와 streaming header 전달 |
+| `moodi/vercel.json` | Vercel same-origin external rewrite; `/api/*`·`/health/*`를 운영 backend로 전달하고 SPA route를 `index.html`로 fallback |
+| `vercel.json` | 저장소 루트를 Vercel Root Directory로 선택한 기존 프로젝트를 위한 동일 external rewrite 설정 |
 | `moodi/.env.local` | 로컬 개발 backend origin `http://localhost:8080` (git ignore) |
 | `moodi/src/shared/api/apiConfig.ts` | API origin과 backend relative URL 정규화 |
 | `moodi/src/shared/api/httpClient.ts` | cookie credential, memory CSRF token, timeout, JSON/problem response, idempotency header 공통 경계 |

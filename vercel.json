@@ -1,0 +1,20 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "installCommand": "npm --prefix moodi ci",
+  "buildCommand": "npm --prefix moodi run build",
+  "outputDirectory": "moodi/dist",
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "https://api.moodi.kro.kr/api/:path*"
+    },
+    {
+      "source": "/health/:path*",
+      "destination": "https://api.moodi.kro.kr/health/:path*"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}

@@ -22,21 +22,21 @@ npm run dev
 
 ## Vercel 배포
 
-Vercel 프로젝트의 Root Directory는 `moodi`로 설정한다. 브라우저가 backend를 직접 호출하면
+Vercel 프로젝트의 Root Directory는 `moodi`로 설정한다. 저장소 루트를 Root Directory로
+사용하는 기존 프로젝트는 저장소 루트의 `vercel.json`이 build/output까지 지정한다. 브라우저가 backend를 직접 호출하면
 Google GIS double-submit cookie와 host-only session cookie가 backend origin에 전달되지 않으므로
-`VITE_API_BASE_URL`은 반드시 `/`로 둔다. `api/[...path].ts`가 same-origin `/api/*` 요청을
-server-only `MOODI_BACKEND_ORIGIN`으로 전달한다.
+`VITE_API_BASE_URL`은 반드시 `/`로 둔다. `vercel.json`이 same-origin `/api/*` 요청을
+`https://api.moodi.kro.kr`로 reverse proxy한다.
 
 Vercel 환경변수에는 다음을 설정한다.
 
 ```text
 VITE_API_BASE_URL=/
 VITE_GOOGLE_CLIENT_ID=<Google Web client ID>
-MOODI_BACKEND_ORIGIN=https://<backend-origin>
 ```
 
-`MOODI_BACKEND_ORIGIN`은 경로가 없는 `http` 또는 `https` origin이어야 하며 `VITE_` 접두사를
-붙이지 않는다. Backend에는 실제 Vercel 배포 origin을 정확히 허용한다.
+운영 backend target은 `moodi/vercel.json` 또는 저장소 루트 `vercel.json`에
+`https://api.moodi.kro.kr`로 고정되어 있다. Backend에는 실제 Vercel 배포 origin을 정확히 허용한다.
 
 ```text
 MOODI_ALLOWED_ORIGINS=https://<vercel-origin>
