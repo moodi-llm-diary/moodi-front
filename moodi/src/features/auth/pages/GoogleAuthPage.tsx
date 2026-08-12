@@ -1,3 +1,4 @@
+import { useRef } from 'react'
 import { Check, LockKeyhole } from 'lucide-react'
 import { useGoogleAuthPage } from '../hooks/useGoogleAuthPage'
 import type { AuthIntent } from '../types/auth'
@@ -5,7 +6,6 @@ import './AuthPages.css'
 
 type GoogleAuthPageProps = {
   intent: AuthIntent
-  onAuthSuccess: () => void
   onOpenLogin: () => void
   onOpenSignup: () => void
 }
@@ -16,12 +16,12 @@ type GoogleAuthPageProps = {
  */
 export function GoogleAuthPage({
   intent,
-  onAuthSuccess,
   onOpenLogin,
   onOpenSignup,
 }: GoogleAuthPageProps) {
   const isLogin = intent === 'login'
-  const authPage = useGoogleAuthPage(intent, onAuthSuccess)
+  const googleButtonRef = useRef<HTMLDivElement>(null)
+  const authPage = useGoogleAuthPage(intent, googleButtonRef)
 
   return (
     <main className="auth-app" tabIndex={-1}>
@@ -84,22 +84,19 @@ export function GoogleAuthPage({
           </div>
 
           <div className="auth-provider-block">
-            <button
+            <div
+              aria-busy={authPage.isPreparing}
               aria-describedby={authPage.errorMessage ? 'auth-google-error' : 'auth-google-help'}
-              className="auth-google-button"
-              disabled={authPage.isSubmitting}
-              onClick={() => void authPage.submitGoogleAuth()}
-              type="button"
-            >
-              <span className="auth-google-mark" aria-hidden="true">
-                G
-              </span>
-              {authPage.isSubmitting
-                ? 'Google 연결 중…'
-                : `Google 계정으로 ${isLogin ? '로그인' : '시작하기'}`}
-            </button>
+              className="auth-google-button-host"
+              ref={googleButtonRef}
+            />
+            {authPage.isPreparing && (
+              <p className="auth-provider-status" role="status">
+                Google 로그인 버튼을 준비하고 있어요…
+              </p>
+            )}
             <p className="auth-provider-help" id="auth-google-help">
-              로그인과 회원가입은 같은 Google 계정 흐름을 사용해요.
+              Google 계정 선택 화면으로 이동한 뒤 안전하게 돌아옵니다.
             </p>
           </div>
 

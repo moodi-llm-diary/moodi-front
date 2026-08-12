@@ -1,6 +1,5 @@
-import { API_BASE_URL, requestJson } from '../../../shared/api/httpClient'
-import { loadCurrentSession } from './authSessionService'
-import type { AuthUser, GoogleAuthenticationRequest } from '../types/auth'
+import { requestJson } from '../../../shared/api/httpClient'
+import type { GoogleAuthenticationRequest } from '../types/auth'
 
 export type GoogleAuthServiceErrorCode =
   | 'google-auth-not-configured'
@@ -8,7 +7,7 @@ export type GoogleAuthServiceErrorCode =
   | 'google-auth-failed'
 
 /**
- * Google 인증 연동이 준비되지 않은 상태를 호출 계층에 전달한다.
+ * Google 인증 연동 오류를 호출 계층에 전달한다.
  */
 export class GoogleAuthServiceError extends Error {
   readonly code: GoogleAuthServiceErrorCode
@@ -20,15 +19,100 @@ export class GoogleAuthServiceError extends Error {
   }
 }
 
+export type GoogleRedirectLoginConfiguration = {
+  loginUri: string
+  nonce: string
+  state: string
+}
+
 /**
- * Google 계정 인증을 시작하는 application service 경계다.
- *
- * Google credential은 browser에 저장하지 않고 backend의 form callback으로 즉시 넘긴다.
- * 성공 여부는 credential 응답이 아니라 새 HttpOnly session을 조회해 판단한다.
+ * Google redirect 인증에 필요한 일회성 login attempt를 준비한다.
+ * credential은 Google이 same-origin login URI로 직접 POST하며 브라우저에 저장하지 않는다.
  */
-export async function authenticateWithGoogle(
-  request: GoogleAuthenticationRequest,
-): Promise<AuthUser> {
+export async function prepareGoogleRedirectLogin(
+): Promise<GoogleRedirectLoginConfiguration> {
+  requireGoogleClientId()
+
+  const attempt = await requestJson<GoogleLoginAttemptDto>(
+    '/api/v1/auth/login-attempts',
+    {
+      purpose: 'login',
+      returnTo: `${window.location.pathname}${window.location.search}${window.location.hash}`,
+    },
+    { method: 'POST' },
+  )
+
+  return {
+    // GIS redirect POST must return to the browser-facing origin so the
+    // double-submit cookie and the host-only session cookie share one host.
+    loginUri: new URL('/api/v1/auth/google-credentials', window.location.origin).toString(),
+    nonce: attempt.body.nonce,
+    state: attempt.body.attemptId,
+  }
+}
+
+type GoogleLoginAttemptDto = {
+  attemptId: string
+  nonce: string
+  expiresAt: string
+}
+
+type GoogleIdentityApi = {
+  accounts: {
+    id: {
+      initialize: (options: {
+        client_id: string
+        login_uri: string
+        nonce: string
+        ux_mode: 'redirect'
+      }) => void
+      renderButton: (parent: HTMLElement, options: {
+        size: 'large'
+        state: string
+        text: 'signin_with' | 'signup_with'
+        theme: 'outline'
+        type: 'standard'
+        width: string
+      }) => void
+      cancel: () => void
+    }
+  }
+}
+
+/**
+ * 준비된 attempt를 GIS redirect button에 연결한다.
+ * Google이 관리하는 button만 credential을 redirect POST하므로 모바일에서도
+ * popup opener나 window reference에 의존하지 않는다.
+ */
+export async function mountGoogleRedirectButton(
+  container: HTMLElement,
+  configuration: GoogleRedirectLoginConfiguration,
+  intent: GoogleAuthenticationRequest['intent'],
+): Promise<() => void> {
+  const google = await loadGoogleIdentityApi()
+
+  google.accounts.id.initialize({
+    client_id: requireGoogleClientId(),
+    login_uri: configuration.loginUri,
+    nonce: configuration.nonce,
+    ux_mode: 'redirect',
+  })
+  google.accounts.id.renderButton(container, {
+    size: 'large',
+    state: configuration.state,
+    text: intent === 'login' ? 'signin_with' : 'signup_with',
+    theme: 'outline',
+    type: 'standard',
+    width: String(Math.min(400, Math.max(200, container.clientWidth))),
+  })
+
+  return () => {
+    google.accounts.id.cancel()
+    container.replaceChildren()
+  }
+}
+
+function requireGoogleClientId(): string {
   const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID?.trim()
 
   if (!googleClientId) {
@@ -38,97 +122,7 @@ export async function authenticateWithGoogle(
     )
   }
 
-  const attempt = await requestJson<GoogleLoginAttemptDto>(
-    '/api/v1/auth/login-attempts',
-    {
-      purpose: request.intent === 'login' ? 'login' : 'login',
-      returnTo: `${window.location.pathname}${window.location.search}${window.location.hash}`,
-    },
-    { method: 'POST' },
-  )
-  const credential = await requestGoogleCredential(googleClientId, attempt.body.nonce)
-  const csrfToken = createGoogleCsrfToken()
-
-  const secureCookieAttribute = window.location.protocol === 'https:' ? '; Secure' : ''
-  document.cookie = `g_csrf_token=${encodeURIComponent(csrfToken)}; Path=/; SameSite=Lax${secureCookieAttribute}`
-
-  const form = new URLSearchParams({
-    credential,
-    g_csrf_token: csrfToken,
-    state: attempt.body.attemptId,
-  })
-  const response = await fetch(`${API_BASE_URL}/api/v1/auth/google-credentials`, {
-    body: form,
-    credentials: 'include',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    method: 'POST',
-    redirect: 'manual',
-  })
-
-  if (response.type !== 'opaqueredirect' && response.status !== 303 && !response.ok) {
-    throw new GoogleAuthServiceError(
-      'google-auth-failed',
-      'Google 인증을 완료하지 못했습니다. 다시 시도해 주세요.',
-    )
-  }
-
-  const user = await loadCurrentSession()
-
-  if (!user) {
-    throw new GoogleAuthServiceError(
-      'google-auth-failed',
-      'Google 인증 후 세션을 확인하지 못했습니다. 다시 시도해 주세요.',
-    )
-  }
-
-  return user
-}
-
-type GoogleLoginAttemptDto = {
-  attemptId: string
-  nonce: string
-  expiresAt: string
-}
-
-type GoogleCredentialResponse = { credential: string }
-
-type GoogleIdentityApi = {
-  accounts: {
-    id: {
-      initialize: (options: {
-        client_id: string
-        nonce: string
-        callback: (response: GoogleCredentialResponse) => void
-      }) => void
-      prompt: (callback?: (notification: {
-        isNotDisplayed: () => boolean
-        isSkippedMoment: () => boolean
-      }) => void) => void
-    }
-  }
-}
-
-async function requestGoogleCredential(clientId: string, nonce: string): Promise<string> {
-  const google = await loadGoogleIdentityApi()
-
-  return new Promise((resolve, reject) => {
-    google.accounts.id.initialize({
-      client_id: clientId,
-      nonce,
-      callback: (response) => {
-        if (response.credential) {
-          resolve(response.credential)
-          return
-        }
-        reject(new GoogleAuthServiceError('google-auth-failed', 'Google credential을 받지 못했습니다.'))
-      },
-    })
-    google.accounts.id.prompt((notification) => {
-      if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-        reject(new GoogleAuthServiceError('google-auth-cancelled', 'Google 로그인을 취소했어요.'))
-      }
-    })
-  })
+  return googleClientId
 }
 
 function loadGoogleIdentityApi(): Promise<GoogleIdentityApi> {
@@ -149,11 +143,4 @@ function loadGoogleIdentityApi(): Promise<GoogleIdentityApi> {
     )
     document.head.append(script)
   })
-}
-
-function createGoogleCsrfToken(): string {
-  const bytes = new Uint8Array(32)
-  globalThis.crypto.getRandomValues(bytes)
-
-  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('')
 }

@@ -103,8 +103,7 @@
 
 .auth-back-button,
 .auth-secondary-button,
-.auth-ghost-button,
-.auth-google-button {
+.auth-ghost-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -173,38 +172,29 @@
   gap: var(--space-3);
 }
 
-.auth-google-button {
+.auth-google-button-host {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   width: 100%;
   min-height: 52px;
-  padding: 0 var(--space-5);
-  color: var(--moodi-text);
-  background: var(--moodi-surface);
   border: 1px solid var(--moodi-line-strong);
   border-radius: var(--moodi-radius-control);
   box-shadow: var(--shadow-field);
-  transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+  overflow: hidden;
 }
 
-.auth-google-button:hover:not(:disabled) {
-  border-color: var(--moodi-primary);
-  box-shadow: var(--moodi-shadow-soft);
-  transform: translateY(-1px);
+.auth-google-button-host > div {
+  display: flex;
+  justify-content: center;
+  width: 100%;
 }
 
-.auth-google-button:disabled {
-  cursor: wait;
-  opacity: 0.65;
-}
-
-.auth-google-mark {
-  display: grid;
-  width: 22px;
-  height: 22px;
-  color: #4285f4;
-  font-family: Arial, sans-serif;
-  font-size: 1.1rem;
-  font-weight: 700;
-  place-items: center;
+.auth-provider-status {
+  margin: 0;
+  color: var(--moodi-muted);
+  font-size: 0.8125rem;
+  text-align: center;
 }
 
 .auth-provider-help,
@@ -381,7 +371,7 @@
 
 @media (forced-colors: active) {
   .auth-surface,
-  .auth-google-button,
+  .auth-google-button-host,
   .auth-secondary-button,
   .auth-ghost-button {
     border: 1px solid CanvasText;

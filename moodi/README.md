@@ -38,6 +38,22 @@ VITE_GOOGLE_CLIENT_ID=<Google Web client ID>
 운영 backend target은 `moodi/vercel.json` 또는 저장소 루트 `vercel.json`에
 `https://api.moodi.kro.kr`로 고정되어 있다. Backend에는 실제 Vercel 배포 origin을 정확히 허용한다.
 
+Google Cloud Console의 OAuth client에도 같은 프런트 origin을 등록한다.
+
+```text
+Authorized JavaScript origins:
+https://<vercel-origin>
+
+Authorized redirect URIs:
+https://<vercel-origin>/api/v1/auth/google-credentials
+```
+
+로컬 테스트는 `http://localhost:5173`과
+`http://localhost:5173/api/v1/auth/google-credentials`를 각각 추가한다. redirect URI는
+backend URL이 아니라 현재 프런트 origin의 same-origin proxy URL이어야 한다.
+로그인 버튼은 popup을 열지 않고 Google의 full-page redirect UX를 사용하므로 모바일·Safari·Firefox에서도
+브라우저의 popup 차단 정책에 의존하지 않는다.
+
 ```text
 MOODI_ALLOWED_ORIGINS=https://<vercel-origin>
 MOODI_GOOGLE_ALLOWED_ORIGINS=https://<vercel-origin>

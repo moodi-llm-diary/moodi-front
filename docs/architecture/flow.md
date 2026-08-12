@@ -6,7 +6,7 @@
 
 1. Vercel 배포에서는 browser가 `/api/*`만 호출하고 `vercel.json` external rewrite가 `https://api.moodi.kro.kr`로 요청을 전달한다. 요청 cookie와 `Set-Cookie`, SSE·ETag·Location header를 reverse proxy가 유지해 GIS double-submit과 host-only session cookie가 browser origin에서 일관되게 동작한다.
 2. 앱은 `GET /api/v1/auth/session`으로 HttpOnly session을 확인하고 `csrfToken`을 메모리에만 둔다. session이 없으면 Diary 화면을 mount하지 않고 Google 로그인 화면을 표시한다.
-3. 로그인 성공은 `POST /auth/login-attempts` → Google Identity Services credential → form `POST /auth/google-credentials` → session 재조회 순서다. credential/token은 React state·URL·localStorage에 저장하지 않는다.
+3. 로그인 성공은 `POST /auth/login-attempts` → GIS redirect button의 full-page Google account selection → same-origin form `POST /auth/google-credentials` → backend `303` safe return → `GET /auth/session` 재조회 순서다. popup opener를 사용하지 않으며 credential/token은 React state·URL·localStorage에 저장하지 않는다.
 4. `diaryStore.initialize`는 `ApiDiaryRepository.getEntries`와 `getDraft`를 호출한다. 목록 page는 detail DTO로 보완해 domain cache로 변환하며, UI가 backend DTO를 직접 사용하지 않는다.
 5. 기록 create/image upload/message create는 idempotency key를, entry/draft mutation은 직전 ETag의 `If-Match`를, 모든 mutation은 memory CSRF header를 사용한다. version conflict와 problem code는 UI-safe error로 표시한다.
 6. editor는 File을 `POST /diary-images`로 먼저 upload해 server image ID/content URL을 form state에 넣고, 이후 draft/entry body에는 `imageIds`만 보낸다.
@@ -343,22 +343,22 @@
 
 - Actor: 사용자
 - Entry point: Settings의 `계정` 행, desktop Sidebar profile action 또는 mobile `나` menu
-- Preconditions: Google client ID, callback, 백엔드 session API 계약이 아직 구현되지 않았다.
+- Preconditions: Google client ID, Google Cloud의 프런트 origin/redirect URI 등록, backend session API와 same-origin `/api` proxy가 준비돼 있다.
 - Steps:
   1. 로그인하지 않은 사용자는 LoginPage로 이동한다.
   2. App은 login/signup/profile overlay를 History state에 push해 브라우저 Back과 화면 닫기를 동기화한다.
   3. LoginPage와 SignupPage는 `GoogleAuthPage`를 공유하며 각각 `login` 또는 `signup` intent를 auth hook으로 전달한다. 두 인증 화면은 돌아가기·theme selector를 표시하지 않고 `prefers-color-scheme`에 따른 light/dark theme을 사용하며 저장 preference는 바꾸지 않는다.
-  4. `useGoogleAuthPage -> authStore -> authGoogleService` 경계에서 Google 인증을 시작한다.
-  5. 현재 service 계약이 없으므로 typed error를 표시하고 local profile을 임의로 생성하지 않는다.
-  6. 향후 계약이 확정되면 성공한 서버 응답의 표시용 `AuthUser`만 profile service에 전달한다.
+-  4. `useGoogleAuthPage -> authGoogleService`가 login attempt를 만들고 GIS redirect button을 렌더링한다. 버튼 클릭은 popup이 아니라 전체 페이지 이동이다.
+  5. Google이 `credential`, GIS가 만든 `g_csrf_token` cookie/body, button state의 attempt ID를 same-origin backend login URI로 POST한다.
+  6. backend가 credential·nonce·attempt·CSRF를 검증하고 session cookie를 설정한 뒤 allow-listed relative return path로 303 redirect한다. App은 session bootstrap으로 표시용 `AuthUser`만 auth store에 전달한다.
   7. 로그인 사용자는 MyPage에서 profile을 확인하거나 logout한다.
-- Validation: 인증 provider와 백엔드 session 계약의 성공·실패 mapping을 auth service에서 검증한다.
+- Validation: auth service는 client ID와 login attempt 응답을 확인하고, backend는 provider credential·nonce·attempt·CSRF를 검증한다. login URI는 현재 프런트 origin이어야 한다.
 - Empty state: auth user가 없으면 LoginPage와 SignupPage 진입 action을 표시한다.
-- Error state: Google 연동 미설정 typed error를 화면의 alert로 표시한다.
+- Error state: Google 연동 미설정, login-attempt 실패, GIS script 차단/로드 실패를 typed error alert로 표시한다. redirect 중 취소·실패는 backend의 안전한 오류 응답과 session bootstrap 실패로 처리한다.
 - Permission behavior: 실제 role/permission은 서버 계약 전까지 없다. credential과 session 원문은 브라우저 저장하지 않는다.
-- Retry or recovery: 오류 확인 후 Google action을 다시 시도한다.
-- Side effects: 계약 확정 전 성공 side effect 없음; 계약 확정 후 안전한 표시용 profile만 저장한다.
-- Related API: 없음. auth endpoint 계약 미확정.
+- Retry or recovery: 오류 확인 후 새 login attempt를 발급받아 Google redirect button을 다시 렌더링한다. attempt는 짧은 TTL·일회성이다.
+- Side effects: backend session cookie 설정, auth store의 표시용 profile 갱신, memory-only CSRF token 갱신.
+- Related API: `POST /api/v1/auth/login-attempts`, `POST /api/v1/auth/google-credentials`, `GET /api/v1/auth/session`.
 - Related DB tables: 없음.
 
 ## 14. Playwright 실제 브라우저 회귀 검증

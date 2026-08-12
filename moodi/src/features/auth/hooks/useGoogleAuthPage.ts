@@ -1,39 +1,60 @@
-import { useCallback, useState } from 'react'
-import { useAuthStore } from '../stores/authStore'
+import { useEffect, useState, type RefObject } from 'react'
+import {
+  mountGoogleRedirectButton,
+  prepareGoogleRedirectLogin,
+  type GoogleRedirectLoginConfiguration,
+} from '../services/authGoogleService'
 import type { AuthIntent } from '../types/auth'
 
 /**
- * Google 로그인·회원가입 화면의 제출 상태와 auth application action을 조합한다.
+ * Google 로그인·회원가입 화면의 redirect button 준비 상태와 auth service를 조합한다.
  */
 export function useGoogleAuthPage(
   intent: AuthIntent,
-  onAuthSuccess: () => void,
+  googleButtonRef: RefObject<HTMLDivElement | null>,
 ) {
-  const loginWithGoogle = useAuthStore((state) => state.loginWithGoogle)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
-  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isPreparing, setIsPreparing] = useState(true)
 
-  const submitGoogleAuth = useCallback(async () => {
-    if (isSubmitting) return
+  useEffect(() => {
+    let isMounted = true
+    let cleanupButton: (() => void) | undefined
 
-    setIsSubmitting(true)
-    setErrorMessage(null)
+    void prepareGoogleRedirectLogin()
+      .then(async (configuration: GoogleRedirectLoginConfiguration) => {
+        if (!isMounted || !googleButtonRef.current) return
 
-    try {
-      await loginWithGoogle({ intent })
-      onAuthSuccess()
-    } catch (error) {
-      setErrorMessage(
-        error instanceof Error ? error.message : 'Google 인증을 시작하지 못했어요.',
-      )
-    } finally {
-      setIsSubmitting(false)
+        const mountedButtonCleanup = await mountGoogleRedirectButton(
+          googleButtonRef.current,
+          configuration,
+          intent,
+        )
+
+        if (isMounted) {
+          cleanupButton = mountedButtonCleanup
+          setIsPreparing(false)
+        } else {
+          mountedButtonCleanup()
+        }
+      })
+      .catch((error: unknown) => {
+        if (!isMounted) return
+
+        setErrorMessage(
+          error instanceof Error ? error.message : 'Google 인증을 시작하지 못했어요.',
+        )
+        setIsPreparing(false)
+      })
+
+    return () => {
+      isMounted = false
+      cleanupButton?.()
     }
-  }, [intent, isSubmitting, loginWithGoogle, onAuthSuccess])
+  }, [googleButtonRef, intent])
 
   return {
     errorMessage,
-    isSubmitting,
-    submitGoogleAuth,
+    googleButtonRef,
+    isPreparing,
   }
 }

@@ -120,14 +120,12 @@ function App() {
   if (appRoute === 'login') {
     content = (
       <LoginPage
-        onLoginSuccess={closeAppRoute}
         onOpenSignup={() => replaceAppRoute('signup')}
       />
     )
   } else if (appRoute === 'signup') {
     content = (
       <SignupPage
-        onLoginSuccess={closeAppRoute}
         onOpenLogin={() => replaceAppRoute('login')}
       />
     )
@@ -153,7 +151,6 @@ function App() {
   } else if (!currentUser) {
     content = (
       <LoginPage
-        onLoginSuccess={closeAppRoute}
         onOpenSignup={() => replaceAppRoute('signup')}
       />
     )

@@ -1,14 +1,12 @@
 import { create } from 'zustand'
-import { authenticateWithGoogle } from '../services/authGoogleService'
 import { loadCurrentSession, logoutCurrentSession } from '../services/authSessionService'
-import type { AuthUser, GoogleAuthenticationRequest } from '../types/auth'
+import type { AuthUser } from '../types/auth'
 
 type AuthStoreState = {
   currentUser: AuthUser | null
   status: 'idle' | 'loading' | 'ready' | 'error'
   errorMessage: string | null
   initialize: () => Promise<void>
-  loginWithGoogle: (request: GoogleAuthenticationRequest) => Promise<AuthUser>
   logout: () => Promise<boolean>
 }
 
@@ -33,13 +31,6 @@ export const useAuthStore = create<AuthStoreState>((set) => ({
         errorMessage: error instanceof Error ? error.message : '세션을 확인하지 못했습니다.',
       })
     }
-  },
-  loginWithGoogle: async (request) => {
-    const authenticatedUser = await authenticateWithGoogle(request)
-
-    set({ currentUser: authenticatedUser, status: 'ready', errorMessage: null })
-
-    return authenticatedUser
   },
   logout: async () => {
     try {
