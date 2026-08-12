@@ -4,7 +4,7 @@
  */
 const configuredApiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim()
 
-/** `/`는 Vite same-origin proxy를 뜻한다. 배포에서는 API origin을 명시한다. */
+/** `/`는 Vite 또는 Vercel same-origin proxy를 뜻한다. 브라우저 인증 배포도 이를 사용한다. */
 export const API_BASE_URL = configuredApiBaseUrl && configuredApiBaseUrl !== '/'
   ? configuredApiBaseUrl.replace(/\/$/, '')
   : ''

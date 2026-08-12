@@ -1,6 +1,6 @@
 # API 명세 - moodi
 
-프런트엔드는 browser-facing `VITE_API_BASE_URL`을 사용한다. 로컬에서는 이를 `/`로 두고 `VITE_BACKEND_ORIGIN=http://localhost:8080`을 Vite same-origin proxy target으로 사용한다. 개발 서버와 Playwright의 browser origin은 backend·Google login 허용 목록과 일치하는 `http://localhost:5173`이며, `127.0.0.1` 또는 다른 포트로 접근하지 않는다. 모든 제품 API prefix는 `/api/v1`이며 field는 `camelCase` JSON이다.
+프런트엔드는 browser-facing `VITE_API_BASE_URL`을 사용한다. 로컬과 Vercel에서는 이를 `/`로 둔다. 로컬은 `VITE_BACKEND_ORIGIN=http://localhost:8080`을 Vite same-origin proxy target으로 사용하고, Vercel은 server-only `MOODI_BACKEND_ORIGIN`을 `/api/*` proxy target으로 사용한다. 브라우저에서 backend origin을 직접 호출하지 않아 GIS `g_csrf_token`, login-binding, host-only session cookie가 모두 같은 browser origin에 귀속되도록 한다. 개발 서버와 Playwright의 browser origin은 backend·Google login 허용 목록과 일치하는 `http://localhost:5173`이며, `127.0.0.1` 또는 다른 포트로 접근하지 않는다. 모든 제품 API prefix는 `/api/v1`이며 field는 `camelCase` JSON이다.
 
 ## 공통 계약
 

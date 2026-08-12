@@ -20,6 +20,7 @@
 | Path | 책임 |
 | --- | --- |
 | `moodi/.env.example` | `VITE_API_BASE_URL`과 Google client ID 환경변수의 공개 예시 |
+| `moodi/api/[...path].ts` | Vercel server-only same-origin API proxy; backend origin, request cookie, response Set-Cookie와 streaming header 전달 |
 | `moodi/.env.local` | 로컬 개발 backend origin `http://localhost:8080` (git ignore) |
 | `moodi/src/shared/api/apiConfig.ts` | API origin과 backend relative URL 정규화 |
 | `moodi/src/shared/api/httpClient.ts` | cookie credential, memory CSRF token, timeout, JSON/problem response, idempotency header 공통 경계 |
@@ -75,6 +76,7 @@
 | --- | --- |
 | `moodi/playwright.config.ts` | Chrome/Chromium, 1440×900·1280×800·1024×768·768×1024·430×932·390×844·360×800의 7개 프로젝트와 Vite web server 설정 |
 | `moodi/tests/e2e/testSupport.ts` | 첫 navigation 전 auto runtime 수집, HTTP/network/font/image, semantic 대비, 가로 overflow·fixed 겹침·overlay·geometry, mobile 44px touch target·16px input·visual viewport 공통 검증 |
+| `moodi/tests/e2e/auth-theme.spec.ts` | 로그인에서 회원가입으로 전환할 때 html과 theme root가 같은 시스템 테마를 유지하는지 검증 |
 | `moodi/tests/e2e/moodi-visual.spec.ts` | 오늘·빠른 기록·Sidebar·작성·slash·image·목록·상세·캘린더·회고·설정·dark theme 렌더링, Pretendard 실제 load, 7개 viewport 스크린샷과 desktop Main area 전체 점유·오늘 및 기타 route flat wrapper 계약 검증 |
 | `moodi/tests/e2e/moodi-journal-flow.spec.ts` | 긴 일기와 빠른 기록 CRUD, draft 복구, cover/inline image role·inline 삭제 reconciliation, 태그·favorite, 검색·탐색, focus/Escape, mobile touch target 검증 |
 | `moodi/tests/e2e/moodi-mobile-ai.spec.ts` | Mobile App Bar·drawer·오늘/기록/AI/캘린더/나, 작성 진입, local-search·source 이동·대화 관리·결과 없음·취소·저장 오류, keyboard visual viewport와 필수 15개 screenshot 검증 |

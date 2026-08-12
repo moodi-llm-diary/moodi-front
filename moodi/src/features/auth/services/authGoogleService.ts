@@ -49,7 +49,8 @@ export async function authenticateWithGoogle(
   const credential = await requestGoogleCredential(googleClientId, attempt.body.nonce)
   const csrfToken = createGoogleCsrfToken()
 
-  document.cookie = `g_csrf_token=${encodeURIComponent(csrfToken)}; Path=/; SameSite=Lax`
+  const secureCookieAttribute = window.location.protocol === 'https:' ? '; Secure' : ''
+  document.cookie = `g_csrf_token=${encodeURIComponent(csrfToken)}; Path=/; SameSite=Lax${secureCookieAttribute}`
 
   const form = new URLSearchParams({
     credential,

@@ -4,14 +4,15 @@
 
 이 절은 2026-07 backend integration 이후의 현재 구현이다. 아래에 남아 있는 localStorage/local-search 서술은 이전 MVP 흐름 기록이며, 현재 동작과 충돌하면 이 절과 `docs/api/specification.md`가 우선한다.
 
-1. 앱은 `GET /api/v1/auth/session`으로 HttpOnly session을 확인하고 `csrfToken`을 메모리에만 둔다. session이 없으면 Diary 화면을 mount하지 않고 Google 로그인 화면을 표시한다.
-2. 로그인 성공은 `POST /auth/login-attempts` → Google Identity Services credential → form `POST /auth/google-credentials` → session 재조회 순서다. credential/token은 React state·URL·localStorage에 저장하지 않는다.
-3. `diaryStore.initialize`는 `ApiDiaryRepository.getEntries`와 `getDraft`를 호출한다. 목록 page는 detail DTO로 보완해 domain cache로 변환하며, UI가 backend DTO를 직접 사용하지 않는다.
-4. 기록 create/image upload/message create는 idempotency key를, entry/draft mutation은 직전 ETag의 `If-Match`를, 모든 mutation은 memory CSRF header를 사용한다. version conflict와 problem code는 UI-safe error로 표시한다.
-5. editor는 File을 `POST /diary-images`로 먼저 upload해 server image ID/content URL을 form state에 넣고, 이후 draft/entry body에는 `imageIds`만 보낸다.
-6. export는 `GET /diary-data`가 만든 v2 attachment를 바로 내려받는다. import와 전체 삭제는 HEAD confirmation token과 dataset ETag를 얻은 뒤 PUT/DELETE하며 backend가 draft/conversation 정리를 원자적으로 수행한다.
-7. `/ai`는 REST로 conversation/message/run을 만들고 backend SSE `message.delta`만 partial text로 표시한다. terminal event에서 message/source를 확정하며, 취소 시 stream abort와 `PUT /ai-runs/{id}/cancellation`을 함께 실행한다.
-8. user setting은 GET/PATCH `/users/me/settings`으로 동기화한다. theme/sidebar만 device-local preference다.
+1. Vercel 배포에서는 browser가 `/api/*`만 호출하고 `api/[...path].ts`가 server-only `MOODI_BACKEND_ORIGIN`으로 요청을 전달한다. 요청 cookie와 `Set-Cookie`, SSE·ETag·Location header를 proxy가 유지해 GIS double-submit과 host-only session cookie가 browser origin에서 일관되게 동작한다.
+2. 앱은 `GET /api/v1/auth/session`으로 HttpOnly session을 확인하고 `csrfToken`을 메모리에만 둔다. session이 없으면 Diary 화면을 mount하지 않고 Google 로그인 화면을 표시한다.
+3. 로그인 성공은 `POST /auth/login-attempts` → Google Identity Services credential → form `POST /auth/google-credentials` → session 재조회 순서다. credential/token은 React state·URL·localStorage에 저장하지 않는다.
+4. `diaryStore.initialize`는 `ApiDiaryRepository.getEntries`와 `getDraft`를 호출한다. 목록 page는 detail DTO로 보완해 domain cache로 변환하며, UI가 backend DTO를 직접 사용하지 않는다.
+5. 기록 create/image upload/message create는 idempotency key를, entry/draft mutation은 직전 ETag의 `If-Match`를, 모든 mutation은 memory CSRF header를 사용한다. version conflict와 problem code는 UI-safe error로 표시한다.
+6. editor는 File을 `POST /diary-images`로 먼저 upload해 server image ID/content URL을 form state에 넣고, 이후 draft/entry body에는 `imageIds`만 보낸다.
+7. export는 `GET /diary-data`가 만든 v2 attachment를 바로 내려받는다. import와 전체 삭제는 HEAD confirmation token과 dataset ETag를 얻은 뒤 PUT/DELETE하며 backend가 draft/conversation 정리를 원자적으로 수행한다.
+8. `/ai`는 REST로 conversation/message/run을 만들고 backend SSE `message.delta`만 partial text로 표시한다. terminal event에서 message/source를 확정하며, 취소 시 stream abort와 `PUT /ai-runs/{id}/cancellation`을 함께 실행한다.
+9. user setting은 GET/PATCH `/users/me/settings`으로 동기화한다. theme/sidebar만 device-local preference다.
 
 ## 1. 앱 초기화와 저장 migration
 
