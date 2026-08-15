@@ -19,6 +19,7 @@ export type ApiRequestOptions = {
   includeCsrfToken?: boolean
   idempotencyKey?: string
   contentType?: string
+  acceptedStatuses?: readonly number[]
 }
 
 let csrfToken: string | null = null
@@ -55,7 +56,7 @@ export async function requestApi<T>(
       signal,
     })
 
-    if (!response.ok) {
+    if (!response.ok && !options.acceptedStatuses?.includes(response.status)) {
       throw await toApiRequestError(response)
     }
 

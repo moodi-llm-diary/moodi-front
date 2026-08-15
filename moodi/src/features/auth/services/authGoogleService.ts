@@ -1,5 +1,6 @@
-import { requestJson } from '../../../shared/api/httpClient'
-import type { GoogleAuthenticationRequest } from '../types/auth'
+import { requestApi, requestJson } from '../../../shared/api/httpClient'
+import { loadCurrentSession } from './authSessionService'
+import type { AuthUser, GoogleAuthenticationRequest } from '../types/auth'
 
 export type GoogleAuthServiceErrorCode =
   | 'google-auth-not-configured'
@@ -19,18 +20,16 @@ export class GoogleAuthServiceError extends Error {
   }
 }
 
-export type GoogleRedirectLoginConfiguration = {
-  loginUri: string
+export type GooglePopupLoginConfiguration = {
   nonce: string
   state: string
 }
 
 /**
- * Google redirect 인증에 필요한 일회성 login attempt를 준비한다.
- * credential은 Google이 same-origin login URI로 직접 POST하며 브라우저에 저장하지 않는다.
+ * Google popup 인증에 필요한 일회성 login attempt를 준비한다.
+ * credential은 popup callback 이후 앱의 same-origin service가 즉시 전송한다.
  */
-export async function prepareGoogleRedirectLogin(
-): Promise<GoogleRedirectLoginConfiguration> {
+export async function prepareGooglePopupLogin(): Promise<GooglePopupLoginConfiguration> {
   requireGoogleClientId()
 
   const attempt = await requestJson<GoogleLoginAttemptDto>(
@@ -43,12 +42,45 @@ export async function prepareGoogleRedirectLogin(
   )
 
   return {
-    // GIS redirect POST must return to the browser-facing origin so the
-    // double-submit cookie and the host-only session cookie share one host.
-    loginUri: new URL('/api/v1/auth/google-credentials', window.location.origin).toString(),
     nonce: attempt.body.nonce,
     state: attempt.body.attemptId,
   }
+}
+
+/**
+ * GIS popup callback의 credential을 backend session으로 교환한다.
+ * 브라우저-facing same-origin API를 사용해 Google origin CORS 차단을 피한다.
+ */
+export async function authenticateWithGoogleCredential(
+  configuration: GooglePopupLoginConfiguration,
+  credential: string,
+): Promise<AuthUser> {
+  const csrfToken = createGoogleCsrfToken()
+  const form = new URLSearchParams({
+    credential,
+    g_csrf_token: csrfToken,
+    state: configuration.state,
+  })
+
+  setGoogleCsrfCookie(csrfToken)
+
+  await requestApi<void>('/api/v1/auth/google-credentials', {
+    acceptedStatuses: [303],
+    body: form,
+    contentType: 'application/x-www-form-urlencoded',
+    method: 'POST',
+  })
+
+  const user = await loadCurrentSession()
+
+  if (!user) {
+    throw new GoogleAuthServiceError(
+      'google-auth-failed',
+      'Google 인증 후 세션을 확인하지 못했습니다. 다시 시도해 주세요.',
+    )
+  }
+
+  return user
 }
 
 type GoogleLoginAttemptDto = {
@@ -62,9 +94,9 @@ type GoogleIdentityApi = {
     id: {
       initialize: (options: {
         client_id: string
-        login_uri: string
         nonce: string
-        ux_mode: 'redirect'
+        callback: (response: GoogleCredentialResponse) => void
+        ux_mode: 'popup'
       }) => void
       renderButton: (parent: HTMLElement, options: {
         size: 'large'
@@ -80,22 +112,24 @@ type GoogleIdentityApi = {
 }
 
 /**
- * 준비된 attempt를 GIS redirect button에 연결한다.
- * Google이 관리하는 button만 credential을 redirect POST하므로 모바일에서도
- * popup opener나 window reference에 의존하지 않는다.
+ * 준비된 attempt를 GIS popup button에 연결한다.
+ * credential은 callback으로 받아 application service에 전달한다.
  */
-export async function mountGoogleRedirectButton(
+export async function mountGooglePopupButton(
   container: HTMLElement,
-  configuration: GoogleRedirectLoginConfiguration,
+  configuration: GooglePopupLoginConfiguration,
   intent: GoogleAuthenticationRequest['intent'],
+  onCredential: (credential: string) => void | Promise<void>,
 ): Promise<() => void> {
   const google = await loadGoogleIdentityApi()
 
   google.accounts.id.initialize({
+    callback: (response) => {
+      if (response.credential) void onCredential(response.credential)
+    },
     client_id: requireGoogleClientId(),
-    login_uri: configuration.loginUri,
     nonce: configuration.nonce,
-    ux_mode: 'redirect',
+    ux_mode: 'popup',
   })
   google.accounts.id.renderButton(container, {
     size: 'large',
@@ -143,4 +177,20 @@ function loadGoogleIdentityApi(): Promise<GoogleIdentityApi> {
     )
     document.head.append(script)
   })
+}
+
+type GoogleCredentialResponse = {
+  credential?: string
+}
+
+function setGoogleCsrfCookie(token: string): void {
+  const secureAttribute = window.location.protocol === 'https:' ? '; Secure' : ''
+  document.cookie = `g_csrf_token=${encodeURIComponent(token)}; Path=/; SameSite=Lax${secureAttribute}`
+}
+
+function createGoogleCsrfToken(): string {
+  const bytes = new Uint8Array(32)
+  globalThis.crypto.getRandomValues(bytes)
+
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('')
 }

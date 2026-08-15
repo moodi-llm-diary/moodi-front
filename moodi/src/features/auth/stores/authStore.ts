@@ -7,6 +7,7 @@ type AuthStoreState = {
   status: 'idle' | 'loading' | 'ready' | 'error'
   errorMessage: string | null
   initialize: () => Promise<void>
+  setAuthenticatedUser: (user: AuthUser) => void
   logout: () => Promise<boolean>
 }
 
@@ -18,6 +19,9 @@ export const useAuthStore = create<AuthStoreState>((set) => ({
   currentUser: null,
   status: 'idle',
   errorMessage: null,
+  setAuthenticatedUser: (currentUser) => {
+    set({ currentUser, status: 'ready', errorMessage: null })
+  },
   initialize: async () => {
     set({ status: 'loading', errorMessage: null })
 

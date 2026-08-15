@@ -45,7 +45,7 @@
 | `login` | 기존 Moodi 자체 계정에 Google 계정으로 진입하려는 의도 |
 | `signup` | Google 계정으로 Moodi 자체 계정을 만들려는 의도 |
 
-로그인과 회원가입은 같은 Google provider 흐름을 공유한다. `authGoogleService`는 짧은 login attempt와 nonce를 발급받아 GIS redirect button의 `login_uri`와 `state`를 구성한다. Google credential은 full-page redirect POST로 backend에 전달되고, 복귀 후 `authStore`가 session DTO의 표시용 `UserDto`만 반영한다. credential·session 원문은 브라우저 저장소에 남기지 않는다.
+로그인과 회원가입은 같은 Google provider 흐름을 공유한다. `authGoogleService`는 짧은 login attempt와 nonce를 발급받아 GIS popup button의 callback과 `state`를 구성한다. callback credential은 앱의 same-origin API service가 `g_csrf_token` cookie/body와 함께 backend에 전달하고, 이후 `authStore`가 session DTO의 표시용 `UserDto`만 반영한다. credential·session 원문은 브라우저 저장소에 남기지 않는다.
 
 ### Mood
 

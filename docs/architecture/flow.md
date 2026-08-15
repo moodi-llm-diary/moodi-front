@@ -4,9 +4,9 @@
 
 이 절은 2026-07 backend integration 이후의 현재 구현이다. 아래에 남아 있는 localStorage/local-search 서술은 이전 MVP 흐름 기록이며, 현재 동작과 충돌하면 이 절과 `docs/api/specification.md`가 우선한다.
 
-1. Vercel 배포에서는 browser가 `/api/*`만 호출하고 `vercel.json` external rewrite가 `https://api.moodi.kro.kr`로 요청을 전달한다. 요청 cookie와 `Set-Cookie`, SSE·ETag·Location header를 reverse proxy가 유지해 GIS double-submit과 host-only session cookie가 browser origin에서 일관되게 동작한다.
+1. Vercel 배포에서는 browser가 `/api/*`만 호출하고 `vercel.json` external rewrite가 `https://api.moodi.kro.kr`로 요청을 전달한다. 요청 cookie와 `Set-Cookie`, CORS·SSE·ETag header를 reverse proxy가 유지해 인증과 same-origin API 호출이 일관되게 동작한다.
 2. 앱은 `GET /api/v1/auth/session`으로 HttpOnly session을 확인하고 `csrfToken`을 메모리에만 둔다. session이 없으면 Diary 화면을 mount하지 않고 Google 로그인 화면을 표시한다.
-3. 로그인 성공은 `POST /auth/login-attempts` → GIS redirect button의 full-page Google account selection → same-origin form `POST /auth/google-credentials` → backend `303` safe return → `GET /auth/session` 재조회 순서다. popup opener를 사용하지 않으며 credential/token은 React state·URL·localStorage에 저장하지 않는다.
+3. 로그인 성공은 `POST /auth/login-attempts` → GIS popup button의 Google account selection → JavaScript callback → same-origin form `POST /auth/google-credentials` → backend session cookie → `GET /auth/session` 재조회 순서다. credential/token은 React state·URL·localStorage에 저장하지 않는다.
 4. `diaryStore.initialize`는 `ApiDiaryRepository.getEntries`와 `getDraft`를 호출한다. 목록 page는 detail DTO로 보완해 domain cache로 변환하며, UI가 backend DTO를 직접 사용하지 않는다.
 5. 기록 create/image upload/message create는 idempotency key를, entry/draft mutation은 직전 ETag의 `If-Match`를, 모든 mutation은 memory CSRF header를 사용한다. version conflict와 problem code는 UI-safe error로 표시한다.
 6. editor는 File을 `POST /diary-images`로 먼저 upload해 server image ID/content URL을 form state에 넣고, 이후 draft/entry body에는 `imageIds`만 보낸다.
@@ -343,20 +343,20 @@
 
 - Actor: 사용자
 - Entry point: Settings의 `계정` 행, desktop Sidebar profile action 또는 mobile `나` menu
-- Preconditions: Google client ID, Google Cloud의 프런트 origin/redirect URI 등록, backend session API와 same-origin `/api` proxy가 준비돼 있다.
+- Preconditions: Google client ID, Google Cloud의 프런트 Authorized JavaScript origin 등록, backend session API와 same-origin `/api` proxy가 준비돼 있다.
 - Steps:
   1. 로그인하지 않은 사용자는 LoginPage로 이동한다.
   2. App은 login/signup/profile overlay를 History state에 push해 브라우저 Back과 화면 닫기를 동기화한다.
   3. LoginPage와 SignupPage는 `GoogleAuthPage`를 공유하며 각각 `login` 또는 `signup` intent를 auth hook으로 전달한다. 두 인증 화면은 돌아가기·theme selector를 표시하지 않고 `prefers-color-scheme`에 따른 light/dark theme을 사용하며 저장 preference는 바꾸지 않는다.
--  4. `useGoogleAuthPage -> authGoogleService`가 login attempt를 만들고 GIS redirect button을 렌더링한다. 버튼 클릭은 popup이 아니라 전체 페이지 이동이다.
-  5. Google이 `credential`, GIS가 만든 `g_csrf_token` cookie/body, button state의 attempt ID를 same-origin backend login URI로 POST한다.
-  6. backend가 credential·nonce·attempt·CSRF를 검증하고 session cookie를 설정한 뒤 allow-listed relative return path로 303 redirect한다. App은 session bootstrap으로 표시용 `AuthUser`만 auth store에 전달한다.
+-  4. `useGoogleAuthPage -> authGoogleService`가 login attempt를 만들고 GIS popup button을 렌더링한다. Google 계정 선택은 popup에서 완료한다.
+  5. GIS callback이 credential을 전달하면 service가 `g_csrf_token` cookie/body와 button state의 attempt ID를 same-origin backend API로 form POST한다. Google origin에서 backend proxy로 직접 POST하지 않는다.
+  6. backend가 credential·nonce·attempt·CSRF를 검증하고 session cookie를 설정한다. service는 session API를 재조회해 표시용 `AuthUser`만 auth store에 전달한다.
   7. 로그인 사용자는 MyPage에서 profile을 확인하거나 logout한다.
-- Validation: auth service는 client ID와 login attempt 응답을 확인하고, backend는 provider credential·nonce·attempt·CSRF를 검증한다. login URI는 현재 프런트 origin이어야 한다.
+- Validation: auth service는 client ID와 login attempt 응답을 확인하고, backend는 provider credential·nonce·attempt·CSRF를 검증한다. credential 교환 API는 현재 프런트 origin을 통해 호출한다.
 - Empty state: auth user가 없으면 LoginPage와 SignupPage 진입 action을 표시한다.
-- Error state: Google 연동 미설정, login-attempt 실패, GIS script 차단/로드 실패를 typed error alert로 표시한다. redirect 중 취소·실패는 backend의 안전한 오류 응답과 session bootstrap 실패로 처리한다.
+- Error state: Google 연동 미설정, login-attempt 실패, GIS script 차단/로드 실패, credential 교환 실패를 typed error alert로 표시한다. popup 취소·실패는 현재 화면에서 재시도 가능한 오류로 처리한다.
 - Permission behavior: 실제 role/permission은 서버 계약 전까지 없다. credential과 session 원문은 브라우저 저장하지 않는다.
-- Retry or recovery: 오류 확인 후 새 login attempt를 발급받아 Google redirect button을 다시 렌더링한다. attempt는 짧은 TTL·일회성이다.
+- Retry or recovery: 오류 확인 후 새 login attempt를 발급받아 Google popup button을 다시 렌더링한다. attempt는 짧은 TTL·일회성이다.
 - Side effects: backend session cookie 설정, auth store의 표시용 profile 갱신, memory-only CSRF token 갱신.
 - Related API: `POST /api/v1/auth/login-attempts`, `POST /api/v1/auth/google-credentials`, `GET /api/v1/auth/session`.
 - Related DB tables: 없음.

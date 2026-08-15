@@ -85,7 +85,7 @@ export function GoogleAuthPage({
 
           <div className="auth-provider-block">
             <div
-              aria-busy={authPage.isPreparing}
+              aria-busy={authPage.isPreparing || authPage.isSubmitting}
               aria-describedby={authPage.errorMessage ? 'auth-google-error' : 'auth-google-help'}
               className="auth-google-button-host"
               ref={googleButtonRef}
@@ -96,7 +96,7 @@ export function GoogleAuthPage({
               </p>
             )}
             <p className="auth-provider-help" id="auth-google-help">
-              Google 계정 선택 화면으로 이동한 뒤 안전하게 돌아옵니다.
+              Google 계정 선택 팝업에서 인증한 뒤 안전하게 로그인됩니다.
             </p>
           </div>
 

@@ -44,15 +44,12 @@ Google Cloud Console의 OAuth client에도 같은 프런트 origin을 등록한�
 Authorized JavaScript origins:
 https://<vercel-origin>
 
-Authorized redirect URIs:
-https://<vercel-origin>/api/v1/auth/google-credentials
 ```
 
-로컬 테스트는 `http://localhost:5173`과
-`http://localhost:5173/api/v1/auth/google-credentials`를 각각 추가한다. redirect URI는
-backend URL이 아니라 현재 프런트 origin의 same-origin proxy URL이어야 한다.
-로그인 버튼은 popup을 열지 않고 Google의 full-page redirect UX를 사용하므로 모바일·Safari·Firefox에서도
-브라우저의 popup 차단 정책에 의존하지 않는다.
+로컬 테스트는 `http://localhost:5173`을 Authorized JavaScript origin으로 추가한다. Google
+credential은 popup callback에서 받은 뒤 현재 프런트 origin의 same-origin API proxy로 전송한다.
+Google origin에서 callback endpoint로 직접 POST하는 redirect UX는 배포 backend의 CORS 경계와
+충돌하므로 사용하지 않는다.
 
 ```text
 MOODI_ALLOWED_ORIGINS=https://<vercel-origin>

@@ -25,14 +25,17 @@ test('로그인과 회원가입은 같은 시스템 테마를 사용한다', asy
   await expect(page.locator('.moodi-theme-root')).toHaveAttribute('data-moodi-theme', loginTheme ?? '')
 })
 
-test('Google 로그인은 popup 없이 redirect button을 사용한다', async ({ page }) => {
+test('Google 로그인은 앱 origin callback을 사용하는 popup button을 사용한다', async ({ page }) => {
   await page.addInitScript(() => {
     const browserWindow = window as unknown as {
       google: {
         accounts: {
           id: {
             cancel: () => void
-            initialize: (options: unknown) => void
+            initialize: (options: {
+              callback?: (response: { credential?: string }) => void
+              ux_mode?: string
+            }) => void
             renderButton: (parent: HTMLElement, options: unknown) => void
           }
         }
@@ -60,10 +63,24 @@ test('Google 로그인은 popup 없이 redirect button을 사용한다', async (
     }
   })
 
+  let sessionRequestCount = 0
+  let credentialRequestBody = ''
+  let credentialRequestCookie = ''
   await page.route('**/api/v1/auth/session', async (route) => {
+    const responseUser = sessionRequestCount > 0
+      ? {
+        id: 'user-1',
+        email: 'user@example.com',
+        displayName: 'Moodi User',
+        joinedAt: '2026-01-01T00:00:00.000Z',
+        lastLoginAt: '2026-01-01T00:00:00.000Z',
+      }
+      : null
+    sessionRequestCount += 1
+
     await route.fulfill({
       contentType: 'application/json',
-      body: JSON.stringify({ user: null, csrfToken: null }),
+      body: JSON.stringify({ user: responseUser, csrfToken: responseUser ? 'session-csrf' : null }),
       status: 200,
     })
   })
@@ -78,6 +95,14 @@ test('Google 로그인은 popup 없이 redirect button을 사용한다', async (
       status: 201,
     })
   })
+  await page.route('**/api/v1/auth/google-credentials', async (route) => {
+    credentialRequestBody = route.request().postData() ?? ''
+    credentialRequestCookie = (await route.request().allHeaders()).cookie ?? ''
+    await route.fulfill({
+      headers: { Location: '/' },
+      status: 303,
+    })
+  })
 
   await page.goto('/')
   await page.evaluate(() => {
@@ -89,18 +114,35 @@ test('Google 로그인은 popup 없이 redirect button을 사용한다', async (
   const calls = await page.evaluate(() => (
     window as unknown as {
       __moodiGoogleCalls: {
-        initialize?: { login_uri?: string; ux_mode?: string; nonce?: string }
+        initialize?: {
+          callback?: (response: { credential: string }) => void
+          ux_mode?: string
+          nonce?: string
+        }
         render?: { state?: string }
       }
     }
   ).__moodiGoogleCalls)
 
   expect(calls.initialize).toMatchObject({
-    login_uri: `${new URL(page.url()).origin}/api/v1/auth/google-credentials`,
     nonce: 'test-nonce',
-    ux_mode: 'redirect',
+    ux_mode: 'popup',
   })
   expect(calls.render).toMatchObject({
     state: '00000000-0000-4000-8000-000000000001',
   })
+
+  await page.evaluate(() => {
+    const callback = (window as unknown as {
+      __moodiGoogleCalls: { initialize?: { callback?: (response: { credential: string }) => void } }
+    }).__moodiGoogleCalls.initialize?.callback
+
+    callback?.({ credential: 'test-google-credential' })
+  })
+
+  await expect.poll(() => credentialRequestBody).toContain('credential=test-google-credential')
+  expect(credentialRequestBody).toContain('state=00000000-0000-4000-8000-000000000001')
+  expect(credentialRequestBody).toMatch(/g_csrf_token=[0-9a-f]{64}/)
+  expect(credentialRequestCookie).toMatch(/g_csrf_token=[0-9a-f]{64}/)
+  expect(page.url()).not.toContain('/api/v1/auth/google-credentials')
 })

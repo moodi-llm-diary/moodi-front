@@ -195,11 +195,11 @@
 | `moodi/src/features/auth/pages/GoogleAuthPage.tsx` | 로그인·회원가입 공통 Google 인증 UI와 화면 상태 조립 |
 | `moodi/src/features/auth/pages/MyPage.tsx` | 인증 결과 profile과 logout 화면 |
 | `moodi/src/features/auth/pages/AuthPages.css` | Auth 화면 style |
-| `moodi/src/features/auth/hooks/useGoogleAuthPage.ts` | Google redirect button 준비 상태와 인증 화면 orchestration |
+| `moodi/src/features/auth/hooks/useGoogleAuthPage.ts` | Google popup button 준비 상태와 credential 교환 orchestration |
 | `moodi/src/features/auth/hooks/useMyPage.ts` | profile view model과 logout action |
 | `moodi/src/features/auth/stores/authStore.ts` | 인증 상태와 사용자 profile 표시 state |
 | `moodi/src/features/auth/services/authSessionService.ts` | session 조회·logout, memory CSRF token 갱신 |
-| `moodi/src/features/auth/services/authGoogleService.ts` | login attempt, GIS redirect button, same-origin backend login URI 경계 |
+| `moodi/src/features/auth/services/authGoogleService.ts` | login attempt, GIS popup callback, same-origin credential 교환 경계 |
 | `moodi/src/features/auth/types/auth.ts` | Auth form/domain/view type |
 | `moodi/src/features/theme/components/ThemeSelector.tsx` | 재사용 theme selector |
 | `moodi/src/features/theme/components/ThemeSelector.css` | theme selector style |

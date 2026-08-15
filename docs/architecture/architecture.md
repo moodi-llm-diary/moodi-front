@@ -192,9 +192,9 @@ Legacy migration은 기존 id와 timestamp를 가능한 한 유지하고 한국�
 - `GoogleAuthPage`는 로그인과 회원가입을 같은 Google 계정 흐름의 서로 다른 user intent로 표시한다. 이메일·비밀번호 입력이나 자체 비밀번호 저장은 제공하지 않는다.
 - LoginPage와 SignupPage에는 돌아가기 button과 theme selector를 렌더링하지 않는다.
 - 흐름은 `GoogleAuthPage -> useGoogleAuthPage -> authGoogleService -> same-origin backend`다. 화면과 hook은 Google SDK의 credential과 cookie/session을 직접 다루지 않는다.
-- `authGoogleService`가 login attempt와 nonce를 준비한 뒤 GIS `ux_mode: redirect`, same-origin `login_uri`, attempt ID `state`로 Google button을 렌더링한다. Google은 credential과 `g_csrf_token`을 backend proxy에 form POST하고, backend는 303으로 safe return path로 돌려보낸다.
-- redirect 복귀 후 `App`의 session bootstrap이 HttpOnly session과 memory-only CSRF token을 읽어 auth store를 갱신한다. Google access/refresh token, credential, Moodi session 원문은 localStorage·URL·로그에 남기지 않는다.
-- login URI는 현재 프런트 origin의 `/api/v1/auth/google-credentials`이며 Google Cloud OAuth client의 Authorized redirect URI에 배포 origin별로 정확히 등록한다. backend origin을 직접 login URI로 사용하지 않는다.
+- `authGoogleService`가 login attempt와 nonce를 준비한 뒤 GIS `ux_mode: popup`, attempt ID `state`, callback으로 Google button을 렌더링한다. callback의 credential은 프런트 same-origin API 경계를 통해 `g_csrf_token` cookie/body와 함께 backend proxy에 form POST하고, backend는 session cookie를 설정한다.
+- credential 교환 응답은 frontend service가 303을 허용한 뒤 `GET /auth/session`으로 재조회한다. Google access/refresh token, credential, Moodi session 원문은 localStorage·URL·로그에 남기지 않는다.
+- credential 교환 endpoint는 현재 프런트 origin의 `/api/v1/auth/google-credentials`를 사용하며, backend origin을 직접 호출하지 않는다. Google Cloud OAuth client에는 배포 origin을 Authorized JavaScript origin으로 등록한다. Google origin에서 callback endpoint로 직접 POST하는 redirect UX는 backend CORS 경계와 충돌하므로 사용하지 않는다.
 
 ## AI와 외부 연동 경계
 
